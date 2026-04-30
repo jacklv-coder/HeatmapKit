@@ -21,6 +21,7 @@ Most existing heatmap libraries for Apple platforms target UIKit and have not be
 - 🌍 **Localized labels** — month/weekday labels follow `Calendar.current.locale`
 - 👆 **Tap-to-detail** — opt-in callback per cell, plus a built-in popover tooltip
 - ♿ **VoiceOver-ready** — every cell ships an accessibility label, customizable per app
+- 📸 **Share as image** — `.snapshot(scale:background:)` returns a `CGImage` ready for `ShareLink`
 - 🪶 **Zero dependencies** — Apple frameworks only
 
 ## Requirements
@@ -148,12 +149,43 @@ CalendarHeatmap(contributions: data)
 
 The first color is the empty / no-data shade; the rest are progressively more intense. The number of colors you pass determines the level count. Without `.thresholds(_:)`, HeatmapKit splits `data.max()` evenly across the remaining buckets.
 
+### Share as image
+
+```swift
+import SwiftUI
+import HeatmapKit
+
+struct ShareableHeatmap: View {
+    let data: [Date: Double]
+
+    var body: some View {
+        let heatmap = CalendarHeatmap(contributions: data).levels(.green)
+
+        VStack {
+            heatmap
+
+            if let cg = heatmap.snapshot(scale: 3, background: Color.black) {
+                let image = Image(decorative: cg, scale: 3)
+                ShareLink(
+                    item: image,
+                    preview: SharePreview("My activity", image: image)
+                ) {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+            }
+        }
+    }
+}
+```
+
+`snapshot(scale:background:)` renders the full grid without its scroll wrapper, so the entire date range is captured at intrinsic width — even if the on-screen heatmap would normally scroll. Pass `background:` to fill behind the grid (with 12pt padding) so the output looks intentional outside the dark-mode app it lives in. The returned `CGImage` works with `ShareLink`, `Image(decorative:scale:)`, `UIImage(cgImage:)`, or any `CGImageDestination` for save-to-disk use cases.
+
 ## Roadmap
 
 - [x] v0.1 — `CalendarHeatmap` core: grid, horizontal scroll, 6 palettes, custom thresholds, tap callback, today highlight, locale-aware month/weekday labels
 - [x] v0.2 — VoiceOver labels per cell, customizable via `.accessibilityCellLabel`
 - [x] v0.3 — Built-in detail tooltip on tap, customizable via `.tooltipOnTap`
-- [ ] v0.4 — Shareable image renderer (system share sheet)
+- [x] v0.4 — Shareable image renderer via `.snapshot(scale:background:)` (works with `ShareLink`)
 - [ ] v0.5 — Additional layouts: weekly heatmap, hour×weekday matrix
 - [ ] Localization audit (RTL, non-Gregorian calendars)
 

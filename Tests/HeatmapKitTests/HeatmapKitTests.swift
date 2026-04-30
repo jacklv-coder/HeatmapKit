@@ -159,6 +159,49 @@ func tooltipOnTapEnablesTooltipFlag() {
     #expect(withTooltip.tooltipFormatter == nil)
 }
 
+// MARK: - Snapshot
+
+@Test
+@MainActor
+func snapshotProducesNonEmptyImage() {
+    let cal = Calendar(identifier: .gregorian)
+    let today = cal.startOfDay(for: Date())
+    let start = cal.date(byAdding: .day, value: -30, to: today)!
+
+    let heatmap = CalendarHeatmap(
+        contributions: [today: 5.0],
+        dateRange: start...today
+    )
+
+    let cg = heatmap.snapshot(scale: 1)
+    #expect(cg != nil)
+    #expect((cg?.width ?? 0) > 0)
+    #expect((cg?.height ?? 0) > 0)
+}
+
+@Test
+@MainActor
+func snapshotScaleAffectsPixelDimensions() {
+    let cal = Calendar(identifier: .gregorian)
+    let today = cal.startOfDay(for: Date())
+    let start = cal.date(byAdding: .day, value: -30, to: today)!
+
+    let heatmap = CalendarHeatmap(
+        contributions: [today: 5.0],
+        dateRange: start...today
+    )
+
+    let small = heatmap.snapshot(scale: 1)
+    let large = heatmap.snapshot(scale: 2)
+    // Doubling scale should roughly double pixel dimensions.
+    if let small, let large {
+        #expect(large.width >= small.width * 2 - 2) // tolerate sub-pixel rounding
+        #expect(large.height >= small.height * 2 - 2)
+    } else {
+        Issue.record("Snapshot returned nil")
+    }
+}
+
 // MARK: - Aggregation through CalendarHeatmap
 
 @Test
