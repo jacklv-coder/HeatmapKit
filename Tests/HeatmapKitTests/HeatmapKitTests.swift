@@ -159,6 +159,27 @@ func tooltipOnTapEnablesTooltipFlag() {
     #expect(withTooltip.tooltipFormatter == nil)
 }
 
+// MARK: - Color palette
+
+@Test
+func everyPaletteReturnsFiveColorsPerScheme() {
+    let palettes: [ColorPalette] = [.green, .orange, .blue, .purple, .red, .grayscale]
+    for palette in palettes {
+        #expect(palette.colors(for: .light).count == 5)
+        #expect(palette.colors(for: .dark).count == 5)
+    }
+}
+
+@Test
+func paletteVariantsDifferBetweenLightAndDark() {
+    // Spot-check that the empty (level-0) cell isn't identical across modes —
+    // the whole point of the adaptive palette is that light mode uses a
+    // pale empty cell and dark mode uses a near-black one.
+    let lightEmpty = ColorPalette.green.colors(for: .light).first
+    let darkEmpty = ColorPalette.green.colors(for: .dark).first
+    #expect(lightEmpty != darkEmpty)
+}
+
 // MARK: - Snapshot
 
 @Test
