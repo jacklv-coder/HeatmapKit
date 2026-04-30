@@ -188,6 +188,28 @@ func adaptiveLayoutCapsAtPreferredWhenWide() {
 
 @Test
 @MainActor
+func adaptiveLayoutHonorsMinEvenWhenAboveCellSize() {
+    // When `minCellSize > cellSize`, the floor wins as the effective cap —
+    // cells must still be at least `minCellSize`. Previously a too-wide
+    // container would silently clamp to `cellSize` (14) and violate the
+    // floor; now the cap clamps to max(cellSize, minCellSize).
+    let heatmap = CalendarHeatmap(contributions: [:])
+        .cellSize(14)
+        .fitToWidth(minCellSize: 20)
+
+    // Generously wide: capped at 20 (the larger of 14 and 20), no scroll.
+    let wide = heatmap.computeAdaptiveLayout(containerWidth: 3000)
+    #expect(wide.cellSize == 20)
+    #expect(wide.scroll == false)
+
+    // Narrow: floor at 20, scroll engages.
+    let narrow = heatmap.computeAdaptiveLayout(containerWidth: 100)
+    #expect(narrow.cellSize == 20)
+    #expect(narrow.scroll == true)
+}
+
+@Test
+@MainActor
 func adaptiveLayoutFloorsAndScrollsWhenNarrow() {
     // 365 days squeezed into 100pt: even minCellSize doesn't fit, so
     // the layout should pin to minCellSize and engage the scroll

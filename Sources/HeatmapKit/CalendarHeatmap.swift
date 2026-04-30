@@ -169,6 +169,7 @@ public struct CalendarHeatmap<Item>: View {
                 content
             }
             .defaultScrollAnchor(scrollAnchor)
+            .scrollTargetBehavior(.viewAligned)
         } else {
             content
         }
@@ -212,9 +213,14 @@ public struct CalendarHeatmap<Item>: View {
         }
 
         let fitSize = availableForCells / CGFloat(weeks)
+        // The effective cap is the larger of `cellSize` and `minCellSize` so
+        // an over-spec'd `minCellSize > cellSize` doesn't silently violate
+        // the floor (e.g. fitToWidth(minCellSize: 20) with default cellSize
+        // 14 should produce 20pt cells, not 14).
+        let cap = max(cellSize, minCellSize)
 
-        if fitSize >= cellSize {
-            return (cellSize, false)            // wide: cap at preferred
+        if fitSize >= cap {
+            return (cap, false)                 // wide: cap at preferred (or floor if floor > preferred)
         } else if fitSize >= minCellSize {
             return (fitSize, false)             // mid: shrink to fit, no scroll
         } else {
@@ -250,20 +256,26 @@ public struct CalendarHeatmap<Item>: View {
             if showWeekdayLabels {
                 weekdayLabelColumn
             }
-            ForEach(weeks) { week in
-                VStack(spacing: cellSpacing) {
-                    ForEach(week.days, id: \.self) { date in
-                        cell(
-                            date: date,
-                            values: values,
-                            thresholds: thresholds,
-                            levels: levels,
-                            today: today,
-                            range: range
-                        )
+            // Inner HStack so `.scrollTargetLayout()` only marks week
+            // columns as snap targets — keeping the weekday-label column
+            // (when shown) outside the scroll-snap math.
+            HStack(alignment: .top, spacing: cellSpacing) {
+                ForEach(weeks) { week in
+                    VStack(spacing: cellSpacing) {
+                        ForEach(week.days, id: \.self) { date in
+                            cell(
+                                date: date,
+                                values: values,
+                                thresholds: thresholds,
+                                levels: levels,
+                                today: today,
+                                range: range
+                            )
+                        }
                     }
                 }
             }
+            .scrollTargetLayout()
         }
     }
 
