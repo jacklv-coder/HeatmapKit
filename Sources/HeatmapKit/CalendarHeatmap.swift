@@ -70,6 +70,13 @@ public struct CalendarHeatmap<Item>: View {
 
     var customAccessibilityLabel: ((Date, Double) -> String)? = nil
 
+    var showsTooltipOnTap: Bool = false
+    var tooltipFormatter: ((Date, Double) -> String)? = nil
+
+    // MARK: - Local view state
+
+    @State private var activeTooltipDate: Date? = nil
+
     // MARK: - Init (generic)
 
     /// Create a heatmap from arbitrary `Identifiable` items.
@@ -213,12 +220,31 @@ public struct CalendarHeatmap<Item>: View {
             .contentShape(Rectangle())
             .onTapGesture {
                 if inRange {
+                    if showsTooltipOnTap {
+                        activeTooltipDate = (activeTooltipDate == date) ? nil : date
+                    }
                     onCellTap?(date, value)
                 }
             }
             .accessibilityLabel(Text(inRange ? accessibilityLabelFor(date: date, value: value) : ""))
             .accessibilityHidden(!inRange)
-            .accessibilityAddTraits(inRange && onCellTap != nil ? .isButton : [])
+            .accessibilityAddTraits(inRange && (onCellTap != nil || showsTooltipOnTap) ? .isButton : [])
+            .popover(
+                isPresented: Binding(
+                    get: { showsTooltipOnTap && activeTooltipDate == date },
+                    set: { presented in
+                        if !presented { activeTooltipDate = nil }
+                    }
+                ),
+                arrowEdge: .top
+            ) {
+                Text(tooltipText(date: date, value: value))
+                    .font(.subheadline)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .presentationCompactAdaptation(.popover)
+            }
     }
 
     private func monthLabelRow(weeks: [HeatmapGrid.Week]) -> some View {
@@ -276,6 +302,17 @@ public struct CalendarHeatmap<Item>: View {
         let dateString = date.formatted(date: .long, time: .omitted)
         let valueString = value.formatted()
         return "\(dateString), \(valueString)"
+    }
+
+    /// Build the tooltip body for a cell. Honors `tooltipFormatter` when
+    /// provided; otherwise emits a two-line "{long date}\n{value}" string.
+    func tooltipText(date: Date, value: Double) -> String {
+        if let formatter = tooltipFormatter {
+            return formatter(date, value)
+        }
+        let dateString = date.formatted(date: .long, time: .omitted)
+        let valueString = value.formatted()
+        return "\(dateString)\n\(valueString)"
     }
 
     /// Map a value to a color level using thresholds.

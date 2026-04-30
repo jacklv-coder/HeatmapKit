@@ -121,6 +121,44 @@ func accessibilityLabelHonorsCustomProvider() {
     #expect(heatmap.accessibilityLabelFor(date: date, value: 7.5) == "value=7.5")
 }
 
+// MARK: - Tooltip text
+
+@Test
+@MainActor
+func tooltipTextDefaultIsTwoLinesWithDateAndValue() {
+    let cal = Calendar(identifier: .gregorian)
+    let date = cal.date(from: DateComponents(year: 2026, month: 3, day: 15))!
+    let heatmap = CalendarHeatmap(contributions: [:])
+
+    let text = heatmap.tooltipText(date: date, value: 35)
+    let lines = text.split(separator: "\n")
+    #expect(lines.count == 2)
+    #expect(text.contains("35"))
+    #expect(text.contains("2026"))
+}
+
+@Test
+@MainActor
+func tooltipTextHonorsCustomFormatter() {
+    let cal = Calendar(identifier: .gregorian)
+    let date = cal.date(from: DateComponents(year: 2026, month: 3, day: 15))!
+    let heatmap = CalendarHeatmap(contributions: [:])
+        .tooltipOnTap { _, value in "v=\(value)" }
+
+    #expect(heatmap.tooltipText(date: date, value: 7.5) == "v=7.5")
+}
+
+@Test
+@MainActor
+func tooltipOnTapEnablesTooltipFlag() {
+    let plain = CalendarHeatmap(contributions: [:])
+    #expect(plain.showsTooltipOnTap == false)
+
+    let withTooltip = plain.tooltipOnTap()
+    #expect(withTooltip.showsTooltipOnTap == true)
+    #expect(withTooltip.tooltipFormatter == nil)
+}
+
 // MARK: - Aggregation through CalendarHeatmap
 
 @Test
