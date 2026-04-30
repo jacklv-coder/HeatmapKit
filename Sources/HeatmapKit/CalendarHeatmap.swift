@@ -33,7 +33,7 @@ public struct HeatmapDay: Identifiable, Sendable, Hashable {
 ///
 /// The view shows a 7-row grid spanning a date range, where each cell's
 /// color intensity reflects the value for that day.
-public struct CalendarHeatmap<Item: Identifiable>: View {
+public struct CalendarHeatmap<Item>: View {
 
     // MARK: - Stored data
 

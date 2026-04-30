@@ -7,9 +7,6 @@
 [![SwiftPM](https://img.shields.io/badge/SwiftPM-Compatible-brightgreen.svg)](https://swift.org/package-manager)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)](LICENSE)
 
-> ⚠️ **Status: Work in Progress**
-> The first public release (v0.1) is under active development. APIs may change.
-
 ## Why HeatmapKit?
 
 Most existing heatmap libraries for Apple platforms target UIKit and have not been updated for years. HeatmapKit is built **SwiftUI-first**, supports the full Apple platform family (iOS / macOS / watchOS / tvOS / visionOS), and ships modern interactions like horizontal scrolling, automatic locale-aware month labels, and tap callbacks.
@@ -19,9 +16,10 @@ Most existing heatmap libraries for Apple platforms target UIKit and have not be
 - 🍎 **Pure SwiftUI** — declarative API, no UIKit bridging
 - 📅 **Calendar heatmap** — GitHub-style 7×N grid, perfect for contributions / habits / activity
 - ↔️ **Horizontal scrolling** — long ranges scroll naturally; default-anchors to the most recent week
-- 🎨 **Fully customizable** — cell size, spacing, color levels, thresholds
+- 🎨 **6 built-in palettes** plus full custom-color support
+- ⚖️ **Auto or custom thresholds** — let HeatmapKit bucket values from `data.max()`, or supply your own cutoffs
 - 🌍 **Localized labels** — month/weekday labels follow `Calendar.current.locale`
-- 👆 **Tap-to-detail** — opt-in callbacks per cell
+- 👆 **Tap-to-detail** — opt-in callback per cell
 - 🪶 **Zero dependencies** — Apple frameworks only
 
 ## Requirements
@@ -58,43 +56,87 @@ import HeatmapKit
 
 struct ContentView: View {
     var body: some View {
-        CalendarHeatmap(
-            contributions: sampleData,
-            dateRange: oneYearAgo...today
-        )
-    }
-
-    private var today: Date { Calendar.current.startOfDay(for: Date()) }
-    private var oneYearAgo: Date {
-        Calendar.current.date(byAdding: .day, value: -364, to: today)!
+        // Defaults to the last 365 days ending today.
+        CalendarHeatmap(contributions: sampleData)
     }
 
     private var sampleData: [Date: Double] {
         // Map each day to a value (e.g. minutes focused, commits made, etc.)
-        [today: 35.0]
+        let today = Calendar.current.startOfDay(for: Date())
+        return [today: 35.0]
     }
 }
 ```
 
-## Customization (planned)
+### Custom date range
 
 ```swift
-CalendarHeatmap(contributions: data, dateRange: range)
+let cal = Calendar.current
+let today = cal.startOfDay(for: Date())
+let start = cal.date(byAdding: .day, value: -90, to: today)!
+
+CalendarHeatmap(contributions: data, dateRange: start...today)
+```
+
+### Working with your own model
+
+If your data isn't already a `[Date: Double]` map, point HeatmapKit at any value type using key paths:
+
+```swift
+struct Session {
+    var date: Date
+    var minutes: Double
+}
+
+let sessions: [Session] = ...
+
+CalendarHeatmap(
+    data: sessions,
+    dateKey: \.date,
+    valueKey: \.minutes,
+    aggregation: .sum  // .sum / .count / .max / .min / .average
+)
+```
+
+Multiple items on the same day are combined per `aggregation`.
+
+## Customization
+
+```swift
+CalendarHeatmap(contributions: data)
     .cellSize(14)
     .cellSpacing(3)
-    .levels(.orange)             // built-in palettes: .green / .orange / .blue
-    .thresholds([1, 5, 10, 20])  // value bucketing per level
+    .cellCornerRadius(3)
+    .levels(.orange)               // .green / .orange / .blue / .purple / .red / .grayscale
+    .thresholds([1, 5, 10, 20])    // explicit cutoffs (count = levels.count - 1)
+    .firstWeekday(.monday)
     .showMonthLabels(true)
+    .showWeekdayLabels(false)
+    .todayHighlightColor(.primary) // pass nil to disable today's outline
+    .scrollEnabled(true)
+    .defaultScrollEdge(.trailing)  // anchor to most recent on first appearance
     .onCellTap { date, value in
         print("\(date): \(value)")
     }
 ```
 
-> APIs above are illustrative — final shape may change before v0.1.
+### Bring your own palette
+
+```swift
+CalendarHeatmap(contributions: data)
+    .levels([
+        Color.gray.opacity(0.15),  // empty / no-data
+        Color.pink.opacity(0.4),
+        Color.pink.opacity(0.7),
+        Color.pink,
+    ])
+```
+
+The first color is the empty / no-data shade; the rest are progressively more intense. The number of colors you pass determines the level count. Without `.thresholds(_:)`, HeatmapKit splits `data.max()` evenly across the remaining buckets.
 
 ## Roadmap
 
-- [ ] v0.1 — `CalendarHeatmap` core (grid, scroll, default palettes)
+- [x] v0.1 — `CalendarHeatmap` core: grid, horizontal scroll, 6 palettes, custom thresholds, tap callback, today highlight, locale-aware month/weekday labels
 - [ ] v0.2 — Built-in detail tooltip on tap, accessibility labels
 - [ ] v0.3 — Shareable image renderer (system share sheet)
 - [ ] v0.4 — Additional layouts: weekly heatmap, hour×weekday matrix
