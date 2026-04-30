@@ -16,6 +16,7 @@ Most existing heatmap libraries for Apple platforms target UIKit and have not be
 - 🍎 **Pure SwiftUI** — declarative API, no UIKit bridging
 - 📅 **Calendar heatmap** — GitHub-style 7×N grid, perfect for contributions / habits / activity
 - ↔️ **Horizontal scrolling** — long ranges scroll naturally; default-anchors to the most recent week
+- 📐 **Fit-to-width layout** — opt-in `.fitToWidth(minCellSize:)` adapts cell size to the container, only scrolling when even the floor doesn't fit
 - 🎨 **6 built-in palettes** with auto light / dark variants (green mirrors github.com), plus full custom-color support
 - ⚖️ **Auto or custom thresholds** — let HeatmapKit bucket values from `data.max()`, or supply your own cutoffs
 - 🌍 **Localized labels** — month/weekday labels follow `Calendar.current.locale`
@@ -147,6 +148,26 @@ CalendarHeatmap(contributions: data)
     }
 ```
 
+### Fit to container width
+
+By default the heatmap renders at a static `cellSize` (14pt) wrapped in a horizontal `ScrollView`. On wider screens (iPad, macOS) that wastes space and forces unnecessary scrolling; on narrower screens it can clip awkwardly at the edges. Opt into adaptive sizing:
+
+```swift
+CalendarHeatmap(contributions: data)
+    .cellSize(14)                 // upper bound: cells never grow past this
+    .fitToWidth(minCellSize: 10)  // lower bound: cells shrink down to this
+```
+
+Three-stage behavior driven by container width:
+
+| Width | Cell size | Scroll? |
+|-------|-----------|---------|
+| Wide (≥ ~900pt for a 53-week year) | 14pt (capped) | No — full year visible |
+| Mid (~500–900pt) | Adaptive between 10 and 14pt | No — full year visible |
+| Narrow (< ~500pt, typical iPhone) | 10pt (floor) | Yes — scroll older history |
+
+The scroll fallback engages automatically whenever even `minCellSize` doesn't fit, regardless of `.scrollEnabled(_:)`.
+
 ### Bring your own palette
 
 ```swift
@@ -200,7 +221,8 @@ struct ShareableHeatmap: View {
 - [x] v0.2 — VoiceOver labels per cell, customizable via `.accessibilityCellLabel`
 - [x] v0.3 — Built-in detail tooltip on tap, customizable via `.tooltipOnTap`
 - [x] v0.4 — Shareable image renderer via `.snapshot(scale:background:)` (works with `ShareLink`)
-- [ ] v0.5 — Additional layouts: weekly heatmap, hour×weekday matrix
+- [x] v0.5 — Adaptive `fitToWidth(minCellSize:)` layout; cells size to the container, scroll only when the floor doesn't fit
+- [ ] v0.6 — Additional layouts: weekly heatmap, hour×weekday matrix
 - [ ] Localization audit (RTL, non-Gregorian calendars)
 
 ## Contributing

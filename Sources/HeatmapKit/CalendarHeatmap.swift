@@ -66,6 +66,9 @@ public struct CalendarHeatmap<Item>: View {
     var scrollEnabled: Bool = true
     var defaultScrollEdge: HorizontalEdge = .trailing
 
+    var fitToWidthEnabled: Bool = false
+    var minCellSize: CGFloat = 10
+
     var onCellTap: ((Date, Double) -> Void)? = nil
 
     var customAccessibilityLabel: ((Date, Double) -> String)? = nil
@@ -134,7 +137,17 @@ public struct CalendarHeatmap<Item>: View {
 
     // MARK: - Body
 
+    @ViewBuilder
     public var body: some View {
+        if fitToWidthEnabled {
+            adaptiveBody
+        } else {
+            staticBody
+        }
+    }
+
+    @ViewBuilder
+    private var staticBody: some View {
         let range = effectiveDateRange
         let values = aggregatedValues
         let thresholds = computedThresholds()
@@ -159,6 +172,62 @@ public struct CalendarHeatmap<Item>: View {
         } else {
             content
         }
+    }
+
+    private var adaptiveBody: some View {
+        GeometryReader { proxy in
+            derived(for: proxy.size.width)
+        }
+        .frame(height: estimatedHeight)
+    }
+
+    /// Returns a copy of `self` with `cellSize` and `scrollEnabled`
+    /// resolved against the given container width. The copy disables
+    /// `fitToWidthEnabled` so its body renders the static path.
+    private func derived(for width: CGFloat) -> CalendarHeatmap<Item> {
+        let layout = computeAdaptiveLayout(containerWidth: width)
+        var copy = self
+        copy.fitToWidthEnabled = false
+        copy.cellSize = layout.cellSize
+        copy.scrollEnabled = layout.scroll
+        return copy
+    }
+
+    /// Maps a container width to a target `cellSize` and whether to
+    /// wrap the grid in a `ScrollView`. See `.fitToWidth(minCellSize:)`.
+    func computeAdaptiveLayout(containerWidth: CGFloat) -> (cellSize: CGFloat, scroll: Bool) {
+        let weeks = HeatmapGrid.build(
+            range: effectiveDateRange,
+            firstWeekday: firstWeekday
+        ).count
+
+        guard weeks > 0 else { return (cellSize, false) }
+
+        let labelsWidth: CGFloat = showWeekdayLabels ? cellSize + cellSpacing : 0
+        let spacingTotal = CGFloat(max(weeks - 1, 0)) * cellSpacing
+        let availableForCells = containerWidth - labelsWidth - spacingTotal
+
+        guard availableForCells > 0 else {
+            return (minCellSize, true)
+        }
+
+        let fitSize = availableForCells / CGFloat(weeks)
+
+        if fitSize >= cellSize {
+            return (cellSize, false)            // wide: cap at preferred
+        } else if fitSize >= minCellSize {
+            return (fitSize, false)             // mid: shrink to fit, no scroll
+        } else {
+            return (minCellSize, true)          // narrow: floor + scroll
+        }
+    }
+
+    /// Reserves enough vertical space for the grid in adaptive mode so
+    /// the surrounding `GeometryReader` doesn't expand greedily.
+    private var estimatedHeight: CGFloat {
+        let gridHeight = 7 * cellSize + 6 * cellSpacing
+        let monthRow: CGFloat = showMonthLabels ? 18 : 0  // 12pt label + 6pt VStack gap
+        return gridHeight + monthRow
     }
 
     private var scrollAnchor: UnitPoint {

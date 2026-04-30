@@ -159,6 +159,47 @@ func tooltipOnTapEnablesTooltipFlag() {
     #expect(withTooltip.tooltipFormatter == nil)
 }
 
+// MARK: - Fit to width
+
+@Test
+@MainActor
+func fitToWidthEnablesFlag() {
+    let plain = CalendarHeatmap(contributions: [:])
+    #expect(plain.fitToWidthEnabled == false)
+
+    let withFit = plain.fitToWidth(minCellSize: 8)
+    #expect(withFit.fitToWidthEnabled == true)
+    #expect(withFit.minCellSize == 8)
+}
+
+@Test
+@MainActor
+func adaptiveLayoutCapsAtPreferredWhenWide() {
+    // Default range is the last 365 days. At 2000pt the container is
+    // far wider than the natural grid, so cells should cap at the
+    // preferred cellSize (14) and no scroll wrap should engage.
+    let heatmap = CalendarHeatmap(contributions: [:])
+        .fitToWidth(minCellSize: 10)
+
+    let layout = heatmap.computeAdaptiveLayout(containerWidth: 2000)
+    #expect(layout.cellSize == 14)
+    #expect(layout.scroll == false)
+}
+
+@Test
+@MainActor
+func adaptiveLayoutFloorsAndScrollsWhenNarrow() {
+    // 365 days squeezed into 100pt: even minCellSize doesn't fit, so
+    // the layout should pin to minCellSize and engage the scroll
+    // fallback.
+    let heatmap = CalendarHeatmap(contributions: [:])
+        .fitToWidth(minCellSize: 10)
+
+    let layout = heatmap.computeAdaptiveLayout(containerWidth: 100)
+    #expect(layout.cellSize == 10)
+    #expect(layout.scroll == true)
+}
+
 // MARK: - Color palette
 
 @Test
