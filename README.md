@@ -50,6 +50,18 @@ dependencies: [
 
 Or in Xcode: **File → Add Package Dependencies…** and paste the URL.
 
+## Try the demo
+
+The package ships with a small SwiftUI app so you can see HeatmapKit in motion before integrating:
+
+```bash
+git clone https://github.com/jacklv-coder/HeatmapKit
+cd HeatmapKit
+swift run HeatmapKitDemo
+```
+
+Or open `Package.swift` in Xcode, pick the **HeatmapKitDemo** scheme, and hit Run on My Mac or an iOS Simulator. The demo lets you swap palettes, regenerate sample data, and exercise the tooltip / share APIs live.
+
 ## Quick Start
 
 ```swift
