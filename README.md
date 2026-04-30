@@ -16,7 +16,7 @@ Most existing heatmap libraries for Apple platforms target UIKit and have not be
 - 🍎 **Pure SwiftUI** — declarative API, no UIKit bridging
 - 📅 **Calendar heatmap** — GitHub-style 7×N grid, perfect for contributions / habits / activity
 - ↔️ **Horizontal scrolling** — long ranges scroll naturally; default-anchors to the most recent week
-- 🎨 **6 built-in palettes** plus full custom-color support
+- 🎨 **6 built-in palettes** with auto light / dark variants (green mirrors github.com), plus full custom-color support
 - ⚖️ **Auto or custom thresholds** — let HeatmapKit bucket values from `data.max()`, or supply your own cutoffs
 - 🌍 **Localized labels** — month/weekday labels follow `Calendar.current.locale`
 - 👆 **Tap-to-detail** — opt-in callback per cell, plus a built-in popover tooltip
@@ -148,6 +148,8 @@ CalendarHeatmap(contributions: data)
 ```
 
 The first color is the empty / no-data shade; the rest are progressively more intense. The number of colors you pass determines the level count. Without `.thresholds(_:)`, HeatmapKit splits `data.max()` evenly across the remaining buckets.
+
+> Note: built-in palettes (`.green`, `.orange`, …) automatically swap between light- and dark-mode variants based on the surrounding `colorScheme` environment. Custom palettes passed via `.levels([Color])` are static — gate on `@Environment(\.colorScheme)` yourself if you need them to adapt.
 
 ### Share as image
 

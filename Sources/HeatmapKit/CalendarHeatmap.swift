@@ -77,6 +77,8 @@ public struct CalendarHeatmap<Item>: View {
 
     @State private var activeTooltipDate: Date? = nil
 
+    @Environment(\.colorScheme) private var colorScheme
+
     // MARK: - Init (generic)
 
     /// Create a heatmap from arbitrary `Identifiable` items.
@@ -123,9 +125,11 @@ public struct CalendarHeatmap<Item>: View {
         return buckets.mapValues { aggregation.reduce($0) }
     }
 
-    /// Resolved palette colors (custom or from `palette`).
+    /// Resolved palette colors. Custom levels (set via `.levels([Color])`)
+    /// take precedence; otherwise the active palette is resolved against
+    /// the surrounding `colorScheme` so the grid adapts to light/dark mode.
     var effectiveLevels: [Color] {
-        customLevels ?? palette.colors
+        customLevels ?? palette.colors(for: colorScheme)
     }
 
     // MARK: - Body
