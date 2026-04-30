@@ -123,4 +123,28 @@ public extension CalendarHeatmap {
         copy.onCellTap = action
         return copy
     }
+
+    // MARK: - Accessibility
+
+    /// Provide a custom VoiceOver label for each in-range cell.
+    ///
+    /// Receives the cell's `Date` (start of day) and the aggregated `Double` value
+    /// (0 when the day has no data). If unset, HeatmapKit emits a localized
+    /// `"{long date}, {value}"` string using `Calendar.current.locale`.
+    ///
+    /// Use this to inject domain context (units, "no data" wording, etc.):
+    ///
+    /// ```swift
+    /// CalendarHeatmap(contributions: data)
+    ///     .accessibilityCellLabel { date, value in
+    ///         let day = date.formatted(date: .abbreviated, time: .omitted)
+    ///         return value == 0 ? "\(day), no activity"
+    ///                           : "\(day), \(Int(value)) minutes focused"
+    ///     }
+    /// ```
+    func accessibilityCellLabel(_ provider: @escaping (Date, Double) -> String) -> CalendarHeatmap {
+        var copy = self
+        copy.customAccessibilityLabel = provider
+        return copy
+    }
 }
