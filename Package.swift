@@ -17,19 +17,10 @@ let package = Package(
             name: "HeatmapKit",
             targets: ["HeatmapKit"]
         ),
-        .executable(
-            name: "HeatmapKitDemo",
-            targets: ["HeatmapKitDemo"]
-        ),
     ],
     targets: [
         .target(
             name: "HeatmapKit"
-        ),
-        .executableTarget(
-            name: "HeatmapKitDemo",
-            dependencies: ["HeatmapKit"],
-            path: "Demo"
         ),
         .testTarget(
             name: "HeatmapKitTests",

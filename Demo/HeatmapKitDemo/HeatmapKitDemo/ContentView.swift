@@ -1,28 +1,12 @@
 //
-//  HeatmapKitDemoApp.swift
+//  ContentView.swift
 //  HeatmapKitDemo
-//
-//  Sample app shipped with the HeatmapKit package so visitors can see the
-//  library in motion. From the package root: `swift run HeatmapKitDemo`,
-//  or open Package.swift in Xcode and pick the HeatmapKitDemo scheme.
 //
 
 import SwiftUI
 import HeatmapKit
 
-@main
-struct HeatmapKitDemoApp: App {
-    var body: some Scene {
-        WindowGroup("HeatmapKit Demo") {
-            DemoView()
-                #if os(macOS)
-                .frame(minWidth: 760, minHeight: 520)
-                #endif
-        }
-    }
-}
-
-struct DemoView: View {
+struct ContentView: View {
     @State private var palette: ColorPalette = .green
     @State private var data: [Date: Double] = SampleData.generate()
     @State private var weekdayLabels = false
@@ -39,9 +23,11 @@ struct DemoView: View {
                 Divider()
                 stats
             }
-            .padding(24)
+            .padding(20)
         }
     }
+
+    // MARK: - Heatmap
 
     private func makeHeatmap() -> CalendarHeatmap<HeatmapDay> {
         CalendarHeatmap(contributions: data)
@@ -59,6 +45,8 @@ struct DemoView: View {
             }
     }
 
+    // MARK: - Sections
+
     @ViewBuilder
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -71,7 +59,7 @@ struct DemoView: View {
 
     @ViewBuilder
     private func controls(for heatmap: CalendarHeatmap<HeatmapDay>) -> some View {
-        HStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             Picker("Palette", selection: $palette) {
                 Text("Green").tag(ColorPalette.green)
                 Text("Orange").tag(ColorPalette.orange)
@@ -84,17 +72,21 @@ struct DemoView: View {
 
             Toggle("Weekday labels", isOn: $weekdayLabels)
 
-            Spacer()
+            HStack {
+                Button("Regenerate") {
+                    data = SampleData.generate()
+                }
+                .buttonStyle(.bordered)
 
-            Button("Regenerate") {
-                data = SampleData.generate()
-            }
+                Spacer()
 
-            if let cg = heatmap.snapshot(scale: 3, background: Color.black) {
-                let image = Image(decorative: cg, scale: 3)
-                ShareLink(item: image,
-                          preview: SharePreview("Activity", image: image)) {
-                    Label("Share", systemImage: "square.and.arrow.up")
+                if let cg = heatmap.snapshot(scale: 3, background: Color.black) {
+                    let image = Image(decorative: cg, scale: 3)
+                    ShareLink(item: image,
+                              preview: SharePreview("Activity", image: image)) {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
             }
         }
@@ -140,4 +132,8 @@ enum SampleData {
         }
         return data
     }
+}
+
+#Preview {
+    ContentView()
 }
