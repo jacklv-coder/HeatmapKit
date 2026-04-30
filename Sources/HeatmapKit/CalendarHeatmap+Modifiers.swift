@@ -147,4 +147,30 @@ public extension CalendarHeatmap {
         copy.customAccessibilityLabel = provider
         return copy
     }
+
+    // MARK: - Tooltip
+
+    /// Show a built-in popover with date + value when a cell is tapped.
+    ///
+    /// Tap the same cell again — or tap outside — to dismiss. Pass a
+    /// `formatter` closure to customize the rendered string; the default
+    /// is a two-line `"{long date}\n{value}"` using the current locale.
+    /// `onCellTap` (if set) still fires alongside the tooltip.
+    ///
+    /// On compact size classes, the popover adapts to a small bubble via
+    /// `presentationCompactAdaptation(.popover)`.
+    ///
+    /// ```swift
+    /// CalendarHeatmap(contributions: data)
+    ///     .tooltipOnTap { date, value in
+    ///         let day = date.formatted(date: .abbreviated, time: .omitted)
+    ///         return "\(day) — \(Int(value)) min"
+    ///     }
+    /// ```
+    func tooltipOnTap(_ formatter: ((Date, Double) -> String)? = nil) -> CalendarHeatmap {
+        var copy = self
+        copy.showsTooltipOnTap = true
+        copy.tooltipFormatter = formatter
+        return copy
+    }
 }
