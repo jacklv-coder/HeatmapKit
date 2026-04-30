@@ -50,6 +50,18 @@ dependencies: [
 
 Or in Xcode: **File → Add Package Dependencies…** and paste the URL.
 
+## Try the demo
+
+The repo ships with a runnable iOS sample app under `Demo/`:
+
+```bash
+git clone https://github.com/jacklv-coder/HeatmapKit
+cd HeatmapKit
+open Demo/HeatmapKitDemo/HeatmapKitDemo.xcodeproj
+```
+
+The project already references the parent HeatmapKit folder as a local Swift package — pick the **HeatmapKitDemo** scheme, run on an iOS Simulator, and you'll see the heatmap with palette switching, tooltips, accessibility labels, and a Share button wired through `snapshot(scale:background:)`.
+
 ## Quick Start
 
 ```swift
