@@ -68,6 +68,8 @@ public struct CalendarHeatmap<Item>: View {
 
     var onCellTap: ((Date, Double) -> Void)? = nil
 
+    var customAccessibilityLabel: ((Date, Double) -> String)? = nil
+
     // MARK: - Init (generic)
 
     /// Create a heatmap from arbitrary `Identifiable` items.
@@ -214,6 +216,9 @@ public struct CalendarHeatmap<Item>: View {
                     onCellTap?(date, value)
                 }
             }
+            .accessibilityLabel(Text(inRange ? accessibilityLabelFor(date: date, value: value) : ""))
+            .accessibilityHidden(!inRange)
+            .accessibilityAddTraits(inRange && onCellTap != nil ? .isButton : [])
     }
 
     private func monthLabelRow(weeks: [HeatmapGrid.Week]) -> some View {
@@ -260,6 +265,18 @@ public struct CalendarHeatmap<Item>: View {
     }
 
     // MARK: - Helpers
+
+    /// Build the VoiceOver label for an in-range cell.
+    /// Honors `customAccessibilityLabel` when provided; otherwise emits a
+    /// localized "{long date}, {value}" string using the user's current locale.
+    func accessibilityLabelFor(date: Date, value: Double) -> String {
+        if let custom = customAccessibilityLabel {
+            return custom(date, value)
+        }
+        let dateString = date.formatted(date: .long, time: .omitted)
+        let valueString = value.formatted()
+        return "\(dateString), \(valueString)"
+    }
 
     /// Map a value to a color level using thresholds.
     /// thresholds.count == levels.count - 1. value < thresholds[0] => levels[0].

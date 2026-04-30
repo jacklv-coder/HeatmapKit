@@ -20,6 +20,7 @@ Most existing heatmap libraries for Apple platforms target UIKit and have not be
 - ⚖️ **Auto or custom thresholds** — let HeatmapKit bucket values from `data.max()`, or supply your own cutoffs
 - 🌍 **Localized labels** — month/weekday labels follow `Calendar.current.locale`
 - 👆 **Tap-to-detail** — opt-in callback per cell
+- ♿ **VoiceOver-ready** — every cell ships an accessibility label, customizable per app
 - 🪶 **Zero dependencies** — Apple frameworks only
 
 ## Requirements
@@ -118,6 +119,13 @@ CalendarHeatmap(contributions: data)
     .onCellTap { date, value in
         print("\(date): \(value)")
     }
+    .accessibilityCellLabel { date, value in
+        // VoiceOver announces this for each in-range cell.
+        // Default emits "{long date}, {value}" — override to inject units / wording.
+        let day = date.formatted(date: .abbreviated, time: .omitted)
+        return value == 0 ? "\(day), no activity"
+                          : "\(day), \(Int(value)) minutes focused"
+    }
 ```
 
 ### Bring your own palette
@@ -137,9 +145,10 @@ The first color is the empty / no-data shade; the rest are progressively more in
 ## Roadmap
 
 - [x] v0.1 — `CalendarHeatmap` core: grid, horizontal scroll, 6 palettes, custom thresholds, tap callback, today highlight, locale-aware month/weekday labels
-- [ ] v0.2 — Built-in detail tooltip on tap, accessibility labels
-- [ ] v0.3 — Shareable image renderer (system share sheet)
-- [ ] v0.4 — Additional layouts: weekly heatmap, hour×weekday matrix
+- [x] v0.2 — VoiceOver labels per cell, customizable via `.accessibilityCellLabel`
+- [ ] v0.3 — Built-in detail tooltip on tap
+- [ ] v0.4 — Shareable image renderer (system share sheet)
+- [ ] v0.5 — Additional layouts: weekly heatmap, hour×weekday matrix
 - [ ] Localization audit (RTL, non-Gregorian calendars)
 
 ## Contributing

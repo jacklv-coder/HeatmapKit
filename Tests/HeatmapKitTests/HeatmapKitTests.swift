@@ -95,7 +95,33 @@ func defaultDateRangeIs365Days() {
     #expect(days == 364) // inclusive range: 365 distinct days
 }
 
-// MARK: - Aggregated values
+// MARK: - Accessibility labels
+
+@Test
+@MainActor
+func accessibilityLabelDefaultIncludesDateAndValue() {
+    let cal = Calendar(identifier: .gregorian)
+    let date = cal.date(from: DateComponents(year: 2026, month: 3, day: 15))!
+    let heatmap = CalendarHeatmap(contributions: [:])
+
+    let label = heatmap.accessibilityLabelFor(date: date, value: 35)
+    // Date format depends on locale, so just assert the value and year are present.
+    #expect(label.contains("35"))
+    #expect(label.contains("2026"))
+}
+
+@Test
+@MainActor
+func accessibilityLabelHonorsCustomProvider() {
+    let cal = Calendar(identifier: .gregorian)
+    let date = cal.date(from: DateComponents(year: 2026, month: 3, day: 15))!
+    let heatmap = CalendarHeatmap(contributions: [:])
+        .accessibilityCellLabel { _, value in "value=\(value)" }
+
+    #expect(heatmap.accessibilityLabelFor(date: date, value: 7.5) == "value=7.5")
+}
+
+// MARK: - Aggregation through CalendarHeatmap
 
 @Test
 @MainActor
