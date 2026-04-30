@@ -126,7 +126,7 @@ CalendarHeatmap(contributions: data)
     .firstWeekday(.monday)
     .showMonthLabels(true)
     .showWeekdayLabels(false)
-    .todayHighlightColor(.primary) // pass nil to disable today's outline
+    .todayHighlightColor(.primary) // opt in to outline today's cell (default is nil, matching github.com)
     .scrollEnabled(true)
     .defaultScrollEdge(.trailing)  // anchor to most recent on first appearance
     .onCellTap { date, value in

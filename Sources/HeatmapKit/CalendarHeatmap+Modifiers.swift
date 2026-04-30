@@ -82,8 +82,9 @@ public extension CalendarHeatmap {
 
     // MARK: - Today highlight
 
-    /// Color used to outline today's cell. Pass `nil` to disable.
-    /// Default: `.primary`.
+    /// Color used to outline today's cell. Pass `nil` (the default) to
+    /// leave today unhighlighted, matching GitHub's contribution graph.
+    /// Pass `.primary` (or any other color) to opt in.
     func todayHighlightColor(_ color: Color?) -> CalendarHeatmap {
         var copy = self
         copy.todayHighlightColor = color

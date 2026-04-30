@@ -60,7 +60,7 @@ public struct CalendarHeatmap<Item>: View {
     var showMonthLabels: Bool = true
     var showWeekdayLabels: Bool = false
 
-    var todayHighlightColor: Color? = .primary
+    var todayHighlightColor: Color? = nil
     var todayHighlightWidth: CGFloat = 1.2
 
     var scrollEnabled: Bool = true
