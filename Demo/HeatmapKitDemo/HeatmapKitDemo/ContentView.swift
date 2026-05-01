@@ -33,7 +33,7 @@ struct ContentView: View {
         CalendarHeatmap(contributions: data)
             .levels(palette)
             .showWeekdayLabels(weekdayLabels)
-            .fitToWidth(minCellSize: 10)
+            .fitToWidth(minCellSize: 15)
             .tooltipOnTap { date, value in
                 let day = date.formatted(date: .abbreviated, time: .omitted)
                 return value == 0 ? "\(day)\nno activity"
