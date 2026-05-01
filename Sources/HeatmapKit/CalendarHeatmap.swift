@@ -233,10 +233,14 @@ public struct CalendarHeatmap<Item>: View {
             let perCell = minCellSize + cellSpacing
             let visibleN = max(1, Int(floor((availableWidth + cellSpacing) / perCell)))
             let exactCellSize = (availableWidth - CGFloat(visibleN - 1) * cellSpacing) / CGFloat(visibleN)
-            // Clamp into [minCellSize, cap]. The lower clamp matters only in
-            // the degenerate case where availableWidth < a single minCellSize
-            // cell (we'd rather overflow + scroll than render a sub-min cell).
-            let final = min(cap, max(minCellSize, exactCellSize))
+            // Floor at minCellSize for the degenerate "container narrower than
+            // a single min cell" case. We deliberately do NOT clamp at `cap`
+            // — once we're in scroll mode, exact-fill (no leading partial)
+            // takes priority over the preferred cellSize ceiling. Allowing
+            // cells slightly larger than `cap` is the only way to consume the
+            // sub-cell remainder of `availableWidth` without leaving empty
+            // space at the leading edge.
+            let final = max(minCellSize, exactCellSize)
             return (final, true)
         }
     }

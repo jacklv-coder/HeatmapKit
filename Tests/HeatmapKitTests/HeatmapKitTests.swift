@@ -197,15 +197,22 @@ func adaptiveLayoutHonorsMinEvenWhenAboveCellSize() {
         .cellSize(14)
         .fitToWidth(minCellSize: 20)
 
-    // Generously wide: capped at 20 (the larger of 14 and 20), no scroll.
+    // Generously wide: cap at max(14, 20) = 20, no scroll.
     let wide = heatmap.computeAdaptiveLayout(containerWidth: 3000)
     #expect(wide.cellSize == 20)
     #expect(wide.scroll == false)
 
-    // Narrow: floor at 20, scroll engages.
+    // Narrow: scroll engages and cellSize is sized to fill the container
+    // exactly with whole weeks. cellSize must be ≥ minCellSize but is
+    // *not* clamped at `cap` — the narrow branch prioritizes exact fill
+    // over the preferred-size ceiling so there's no partial cell at the
+    // leading edge. (W=100, perCell=23 → visibleN=4, cell=91/4=22.75)
     let narrow = heatmap.computeAdaptiveLayout(containerWidth: 100)
-    #expect(narrow.cellSize == 20)
+    #expect(narrow.cellSize >= 20)
     #expect(narrow.scroll == true)
+    let n = 4
+    let total = CGFloat(n) * narrow.cellSize + CGFloat(n - 1) * 3
+    #expect(abs(total - 100) < 0.001)
 }
 
 @Test
