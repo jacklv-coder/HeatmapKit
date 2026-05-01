@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A920832F2FA363BB0018FA13 /* HeatmapKit in Frameworks */ = {isa = PBXBuildFile; productRef = A920832E2FA363BB0018FA13 /* HeatmapKit */; };
+		A920834A2FA496160018FA13 /* HeatmapKit in Frameworks */ = {isa = PBXBuildFile; productRef = A92083492FA496160018FA13 /* HeatmapKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,7 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A920832F2FA363BB0018FA13 /* HeatmapKit in Frameworks */,
+				A920834A2FA496160018FA13 /* HeatmapKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -117,7 +117,7 @@
 			);
 			name = HeatmapKitDemo;
 			packageProductDependencies = (
-				A920832E2FA363BB0018FA13 /* HeatmapKit */,
+				A92083492FA496160018FA13 /* HeatmapKit */,
 			);
 			productName = HeatmapKitDemo;
 			productReference = A92082F72FA362F20018FA13 /* HeatmapKitDemo.app */;
@@ -202,7 +202,7 @@
 			mainGroup = A92082EE2FA362F10018FA13;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				A920832D2FA363BB0018FA13 /* XCLocalSwiftPackageReference "../../../HeatmapKit" */,
+				A92083482FA496160018FA13 /* XCLocalSwiftPackageReference "../../../HeatmapKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A92082F82FA362F20018FA13 /* Products */;
@@ -616,14 +616,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		A920832D2FA363BB0018FA13 /* XCLocalSwiftPackageReference "../../../HeatmapKit" */ = {
+		A92083482FA496160018FA13 /* XCLocalSwiftPackageReference "../../../HeatmapKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../../../HeatmapKit;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A920832E2FA363BB0018FA13 /* HeatmapKit */ = {
+		A92083492FA496160018FA13 /* HeatmapKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = HeatmapKit;
 		};

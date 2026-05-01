@@ -175,82 +175,94 @@ public struct CalendarHeatmap<Item>: View {
         }
     }
 
+    /// Width-aware layout via SwiftUI's `Layout` protocol. The layout sees
+    /// the proposal width in `sizeThatFits`, picks `cellSize` from
+    /// (preferred → fitted → min), and places each subview at its grid
+    /// position in a single pass — no `@State`, no GeometryReader feedback
+    /// loop, no auto-centering by SwiftUI's overflow rules.
+    ///
+    /// Subviews are ordered so `placeSubviews` can index them positionally:
+    /// optional 7 weekday labels first, then cells in week-major / day-by-
+    /// week order.
+    ///
+    /// **Trade-off vs the previous adaptive body**: there is no scroll
+    /// fallback. If even `minCellSize` can't fit all weeks in the proposed
+    /// width, cells stay at `minCellSize` and the heatmap returns a width
+    /// larger than the proposal — the parent decides what to do (clip,
+    /// allow overflow, or wrap in its own `ScrollView`). For full-year
+    /// heatmaps on phone-sized containers, prefer the default
+    /// scroll-wrapped path (don't enable `.fitToWidth`).
     private var adaptiveBody: some View {
-        GeometryReader { proxy in
-            derived(for: proxy.size.width)
-        }
-        .frame(height: estimatedHeight)
-    }
-
-    /// Returns a copy of `self` with `cellSize` and `scrollEnabled`
-    /// resolved against the given container width. The copy disables
-    /// `fitToWidthEnabled` so its body renders the static path.
-    private func derived(for width: CGFloat) -> CalendarHeatmap<Item> {
-        let layout = computeAdaptiveLayout(containerWidth: width)
-        var copy = self
-        copy.fitToWidthEnabled = false
-        copy.cellSize = layout.cellSize
-        copy.scrollEnabled = layout.scroll
-        return copy
-    }
-
-    /// Maps a container width to a target `cellSize` and whether to
-    /// wrap the grid in a `ScrollView`. See `.fitToWidth(minCellSize:)`.
-    func computeAdaptiveLayout(containerWidth: CGFloat) -> (cellSize: CGFloat, scroll: Bool) {
         let weeks = HeatmapGrid.build(
             range: effectiveDateRange,
             firstWeekday: firstWeekday
-        ).count
+        )
+        let values = aggregatedValues
+        let thresholds = computedThresholds()
+        let levels = effectiveLevels
+        let today = Calendar.current.startOfDay(for: Date())
+        let range = effectiveDateRange
 
-        guard weeks > 0 else { return (cellSize, false) }
-
-        let labelsWidth: CGFloat = showWeekdayLabels ? cellSize + cellSpacing : 0
-        let availableWidth = containerWidth - labelsWidth
-
-        guard availableWidth > 0 else {
-            return (minCellSize, true)
-        }
-
-        // Cell size needed to fit ALL `weeks` columns in the available width.
-        let allFitSize = (availableWidth - CGFloat(max(weeks - 1, 0)) * cellSpacing) / CGFloat(weeks)
-        // The effective cap is the larger of `cellSize` and `minCellSize` so
-        // an over-spec'd `minCellSize > cellSize` doesn't silently violate
-        // the floor (e.g. fitToWidth(minCellSize: 20) with default cellSize
-        // 14 should produce 20pt cells, not 14).
-        let cap = max(cellSize, minCellSize)
-
-        if allFitSize >= cap {
-            return (cap, false)                 // wide: cap at preferred (or floor if floor > preferred)
-        } else if allFitSize >= minCellSize {
-            return (allFitSize, false)          // mid: shrink to fit all weeks, no scroll
-        } else {
-            // Narrow: not all weeks fit even at minCellSize. Pick the largest
-            // whole-week count that fits at minCellSize, then derive the exact
-            // cellSize so those N weeks fill the container at the trailing
-            // anchor — the initial render shows N whole columns, no partial
-            // cell at the leading edge. Older weeks scroll into view (and the
-            // scrollTargetBehavior snaps subsequent stops to week boundaries).
-            let perCell = minCellSize + cellSpacing
-            let visibleN = max(1, Int(floor((availableWidth + cellSpacing) / perCell)))
-            let exactCellSize = (availableWidth - CGFloat(visibleN - 1) * cellSpacing) / CGFloat(visibleN)
-            // Floor at minCellSize for the degenerate "container narrower than
-            // a single min cell" case. We deliberately do NOT clamp at `cap`
-            // — once we're in scroll mode, exact-fill (no leading partial)
-            // takes priority over the preferred cellSize ceiling. Allowing
-            // cells slightly larger than `cap` is the only way to consume the
-            // sub-cell remainder of `availableWidth` without leaving empty
-            // space at the leading edge.
-            let final = max(minCellSize, exactCellSize)
-            return (final, true)
+        return AdaptiveHeatmapLayout(
+            weekCount: weeks.count,
+            preferredCellSize: cellSize,
+            minCellSize: minCellSize,
+            cellSpacing: cellSpacing,
+            showWeekdayLabels: showWeekdayLabels
+        ) {
+            if showWeekdayLabels {
+                ForEach(orderedWeekdaySymbols, id: \.self) { label in
+                    Text(label)
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
+            }
+            ForEach(weeks) { week in
+                ForEach(week.days, id: \.self) { date in
+                    flexCell(
+                        date: date,
+                        values: values,
+                        thresholds: thresholds,
+                        levels: levels,
+                        today: today,
+                        range: range
+                    )
+                }
+            }
         }
     }
 
-    /// Reserves enough vertical space for the grid in adaptive mode so
-    /// the surrounding `GeometryReader` doesn't expand greedily.
-    private var estimatedHeight: CGFloat {
-        let gridHeight = 7 * cellSize + 6 * cellSpacing
-        let monthRow: CGFloat = showMonthLabels ? 18 : 0  // 12pt label + 6pt VStack gap
-        return gridHeight + monthRow
+    /// `veryShortWeekdaySymbols` reordered to start at `firstWeekday`.
+    /// Calendar always emits Sunday at index 0; the rotation here lines
+    /// the labels up with the rows produced by `HeatmapGrid.build`.
+    private var orderedWeekdaySymbols: [String] {
+        let symbols = Calendar.current.veryShortWeekdaySymbols
+        return (0..<7).map { offset -> String in
+            let idx = (firstWeekday.rawValue - 1 + offset) % 7
+            return symbols[idx]
+        }
+    }
+
+    /// Pure helper kept around for tests — returns the `cellSize` that the
+    /// adaptive layout would pick for a given container width. The
+    /// `AdaptiveHeatmapLayout` struct uses the same algorithm internally
+    /// inside `sizeThatFits`. Returns `cap = max(preferredCellSize,
+    /// minCellSize)` when the container is wide, scales down to fit all
+    /// weeks in the mid range, and floors at `minCellSize` when the
+    /// container is too narrow for everything to fit.
+    func adaptiveCellSize(forContainerWidth proposedWidth: CGFloat) -> CGFloat {
+        let weekCount = HeatmapGrid.build(
+            range: effectiveDateRange,
+            firstWeekday: firstWeekday
+        ).count
+        return AdaptiveHeatmapLayout.computeCellSize(
+            proposedWidth: proposedWidth,
+            weekCount: weekCount,
+            preferredCellSize: cellSize,
+            minCellSize: minCellSize,
+            cellSpacing: cellSpacing,
+            showWeekdayLabels: showWeekdayLabels
+        )
     }
 
     private var scrollAnchor: UnitPoint {
@@ -297,7 +309,42 @@ public struct CalendarHeatmap<Item>: View {
     }
 
     @ViewBuilder
+    /// Static-body cell — fixed-size via `.frame(width: cellSize, …)`.
+    /// Used inside `HStack`/`VStack` arrangements that respect natural
+    /// child sizes.
     private func cell(
+        date: Date,
+        values: [Date: Double],
+        thresholds: [Double],
+        levels: [Color],
+        today: Date,
+        range: ClosedRange<Date>
+    ) -> some View {
+        cellContent(date: date, values: values, thresholds: thresholds,
+                    levels: levels, today: today, range: range)
+            .frame(width: cellSize, height: cellSize)
+    }
+
+    /// Adaptive-body cell — flexible-size, sized by `Layout.placeSubviews`'s
+    /// proposal. Identical interactive surface to `cell(...)` minus the
+    /// explicit frame.
+    private func flexCell(
+        date: Date,
+        values: [Date: Double],
+        thresholds: [Double],
+        levels: [Color],
+        today: Date,
+        range: ClosedRange<Date>
+    ) -> some View {
+        cellContent(date: date, values: values, thresholds: thresholds,
+                    levels: levels, today: today, range: range)
+    }
+
+    /// Shared cell visuals + interaction. Sized by the wrapping
+    /// `cell`/`flexCell`; `Rectangle` honors whatever size the parent
+    /// layout proposes.
+    @ViewBuilder
+    private func cellContent(
         date: Date,
         values: [Date: Double],
         thresholds: [Double],
@@ -311,7 +358,6 @@ public struct CalendarHeatmap<Item>: View {
 
         Rectangle()
             .fill(inRange ? colorFor(value: value, thresholds: thresholds, levels: levels) : Color.clear)
-            .frame(width: cellSize, height: cellSize)
             .clipShape(RoundedRectangle(cornerRadius: cellCornerRadius, style: .continuous))
             .overlay {
                 if isToday, let highlight = todayHighlightColor, inRange {
@@ -460,6 +506,150 @@ public struct CalendarHeatmap<Item>: View {
             }
         }
         return thresholds
+    }
+}
+
+// MARK: - Adaptive layout
+
+/// SwiftUI `Layout` that drives `CalendarHeatmap.adaptiveBody`. The layout
+/// receives the parent's proposed width in `sizeThatFits`, picks a
+/// `cellSize` from (preferred → fitted-to-fill → minimum) in one pass,
+/// and places each subview at its grid coordinate. No `@State`, no
+/// PreferenceKey — `Layout` was designed for this.
+///
+/// Subviews are passed in this order (caller's responsibility):
+///   1. Optional 7 weekday-label `Text` views (only when `showWeekdayLabels`)
+///   2. Cells in week-major / day-by-week order (`week 0 day 0…6`,
+///      `week 1 day 0…6`, …)
+///
+/// The layout proposes `(cellSize, cellSize)` to every subview; the
+/// flexible `Rectangle`/`Text` content scales to that proposal.
+///
+/// Lives at file scope because nested types inside the generic
+/// `CalendarHeatmap<Item>` can't carry the static storage that some Swift
+/// constructs require — keeping this out simplifies cross-version safety.
+struct AdaptiveHeatmapLayout: Layout {
+    let weekCount: Int
+    let preferredCellSize: CGFloat
+    let minCellSize: CGFloat
+    let cellSpacing: CGFloat
+    let showWeekdayLabels: Bool
+
+    static let rows = 7
+
+    struct Cache {
+        var cellSize: CGFloat = 0
+    }
+
+    func makeCache(subviews: Subviews) -> Cache { Cache() }
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout Cache
+    ) -> CGSize {
+        let proposedWidth = proposal.width ?? .infinity
+        let resolved = Self.computeCellSize(
+            proposedWidth: proposedWidth,
+            weekCount: weekCount,
+            preferredCellSize: preferredCellSize,
+            minCellSize: minCellSize,
+            cellSpacing: cellSpacing,
+            showWeekdayLabels: showWeekdayLabels
+        )
+        cache.cellSize = resolved
+
+        let labelsWidth: CGFloat = showWeekdayLabels ? resolved + cellSpacing : 0
+        let cellsWidth =
+            CGFloat(weekCount) * resolved + CGFloat(max(weekCount - 1, 0)) * cellSpacing
+        let totalWidth = labelsWidth + cellsWidth
+        let totalHeight =
+            CGFloat(Self.rows) * resolved + CGFloat(Self.rows - 1) * cellSpacing
+        return CGSize(width: totalWidth, height: totalHeight)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout Cache
+    ) {
+        let resolved = cache.cellSize > 0
+            ? cache.cellSize
+            : Self.computeCellSize(
+                proposedWidth: proposal.width ?? bounds.width,
+                weekCount: weekCount,
+                preferredCellSize: preferredCellSize,
+                minCellSize: minCellSize,
+                cellSpacing: cellSpacing,
+                showWeekdayLabels: showWeekdayLabels
+            )
+        let cellProposal = ProposedViewSize(width: resolved, height: resolved)
+        let cellOriginX = bounds.minX + (showWeekdayLabels ? resolved + cellSpacing : 0)
+
+        var index = 0
+
+        if showWeekdayLabels {
+            for row in 0..<Self.rows {
+                guard index < subviews.count else { return }
+                let y = bounds.minY + CGFloat(row) * (resolved + cellSpacing)
+                subviews[index].place(
+                    at: CGPoint(x: bounds.minX, y: y),
+                    anchor: .topLeading,
+                    proposal: cellProposal
+                )
+                index += 1
+            }
+        }
+
+        for week in 0..<weekCount {
+            let x = cellOriginX + CGFloat(week) * (resolved + cellSpacing)
+            for row in 0..<Self.rows {
+                guard index < subviews.count else { return }
+                let y = bounds.minY + CGFloat(row) * (resolved + cellSpacing)
+                subviews[index].place(
+                    at: CGPoint(x: x, y: y),
+                    anchor: .topLeading,
+                    proposal: cellProposal
+                )
+                index += 1
+            }
+        }
+    }
+
+    /// Pure cell-size selector. Exposed `static` so
+    /// `CalendarHeatmap.adaptiveCellSize(forContainerWidth:)` and tests
+    /// can call it without instantiating the layout.
+    static func computeCellSize(
+        proposedWidth: CGFloat,
+        weekCount: Int,
+        preferredCellSize: CGFloat,
+        minCellSize: CGFloat,
+        cellSpacing: CGFloat,
+        showWeekdayLabels: Bool
+    ) -> CGFloat {
+        guard proposedWidth.isFinite, proposedWidth > 0, weekCount > 0 else {
+            return preferredCellSize
+        }
+        // Estimate label width using preferred cellSize (we don't know the
+        // resolved size yet — it's what we're computing). Tiny over- or
+        // under-estimate; in practice the label glyph at font 9 fits well
+        // inside any sensible cellSize.
+        let labelsWidth: CGFloat =
+            showWeekdayLabels ? preferredCellSize + cellSpacing : 0
+        let availableForGrid = proposedWidth - labelsWidth
+        guard availableForGrid > 0 else { return minCellSize }
+
+        let totalSpacing = CGFloat(max(weekCount - 1, 0)) * cellSpacing
+        let cellsAvailable = availableForGrid - totalSpacing
+        guard cellsAvailable > 0 else { return minCellSize }
+
+        let allFitSize = cellsAvailable / CGFloat(weekCount)
+        let cap = max(preferredCellSize, minCellSize)
+
+        if allFitSize >= cap { return cap }
+        if allFitSize >= minCellSize { return allFitSize }
+        return minCellSize
     }
 }
 
