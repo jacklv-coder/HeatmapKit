@@ -8,6 +8,16 @@
 [![SwiftPM](https://img.shields.io/badge/SwiftPM-Compatible-brightgreen.svg)](https://swift.org/package-manager)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)](LICENSE)
 
+<p align="center">
+  <img src="Demo/screenshots/heatmap.png" width="300" alt="Detail tab — three full-width heatmaps stacked, each in its own palette and card background">
+  &nbsp;&nbsp;
+  <img src="Demo/screenshots/heatmap2.png" width="300" alt="Boards tab — Streaks-style habit grid showing six different palettes side by side">
+</p>
+
+<p align="center">
+  <em>From a single contribution grid to a full habit-tracker UI — both screens above are built with <code>CalendarHeatmap</code>, no extra views.</em>
+</p>
+
 ## Why HeatmapKit?
 
 Most existing heatmap libraries for Apple platforms target UIKit and have not been updated for years. HeatmapKit is built **SwiftUI-first**, supports the full Apple platform family (iOS / macOS / watchOS / tvOS / visionOS), and ships modern interactions like horizontal scrolling, automatic locale-aware month labels, and tap callbacks.
