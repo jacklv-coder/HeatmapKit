@@ -80,6 +80,10 @@ public struct CalendarHeatmap<Item>: View {
 
     @State private var activeTooltipDate: Date? = nil
 
+    /// Latest container width measured by the adaptive layout. `nil` until
+    /// the first geometry pass — see `adaptiveBody` for the dance.
+    @State private var measuredWidth: CGFloat? = nil
+
     @Environment(\.colorScheme) private var colorScheme
 
     // MARK: - Init (generic)
@@ -175,11 +179,41 @@ public struct CalendarHeatmap<Item>: View {
         }
     }
 
+    /// Two-pass adaptive layout: render the patched copy at its **natural**
+    /// height (so the parent reserves exactly the right vertical space), and
+    /// concurrently measure the container width via a transparent
+    /// `GeometryReader` background. The `@State` width re-fires `body` once
+    /// SwiftUI knows the actual width, which then feeds the correct cellSize
+    /// to `derived(for:)`.
+    ///
+    /// Width default is `cellSize × 53 + cellSpacing × 52` — wide enough that
+    /// the very first frame returns the cap-cellSize layout (no scroll). On
+    /// real layout the measured width re-renders into the right shape; the
+    /// brief flash is preferable to the pre-fix bug where `.frame(height:
+    /// estimatedHeight)` baked in the *maximum* possible height and left
+    /// dead space at the bottom whenever cells shrank to fit.
     private var adaptiveBody: some View {
-        GeometryReader { proxy in
-            derived(for: proxy.size.width)
-        }
-        .frame(height: estimatedHeight)
+        let width = measuredWidth ?? defaultAdaptiveWidth
+        return derived(for: width)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: AdaptiveWidthKey.self,
+                        value: proxy.size.width
+                    )
+                }
+            )
+            .onPreferenceChange(AdaptiveWidthKey.self) { newWidth in
+                if measuredWidth != newWidth {
+                    measuredWidth = newWidth
+                }
+            }
+    }
+
+    private var defaultAdaptiveWidth: CGFloat {
+        let labels: CGFloat = showWeekdayLabels ? cellSize + cellSpacing : 0
+        // Big enough that the first frame picks the cap-cellSize branch.
+        return labels + 53 * cellSize + 52 * cellSpacing
     }
 
     /// Returns a copy of `self` with `cellSize` and `scrollEnabled`
@@ -243,14 +277,6 @@ public struct CalendarHeatmap<Item>: View {
             let final = max(minCellSize, exactCellSize)
             return (final, true)
         }
-    }
-
-    /// Reserves enough vertical space for the grid in adaptive mode so
-    /// the surrounding `GeometryReader` doesn't expand greedily.
-    private var estimatedHeight: CGFloat {
-        let gridHeight = 7 * cellSize + 6 * cellSpacing
-        let monthRow: CGFloat = showMonthLabels ? 18 : 0  // 12pt label + 6pt VStack gap
-        return gridHeight + monthRow
     }
 
     private var scrollAnchor: UnitPoint {
@@ -460,6 +486,18 @@ public struct CalendarHeatmap<Item>: View {
             }
         }
         return thresholds
+    }
+}
+
+// MARK: - Adaptive layout plumbing
+
+/// File-private preference key — must live outside the generic
+/// `CalendarHeatmap<Item>` because nested generics can't carry the
+/// static `defaultValue` storage required by `PreferenceKey`.
+private struct AdaptiveWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 

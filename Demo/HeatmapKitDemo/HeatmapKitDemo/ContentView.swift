@@ -12,15 +12,93 @@ struct ContentView: View {
     var body: some View {
         TabView {
             NavigationStack {
-                SingleHeatmapView()
+                DetailCardView()
             }
-            .tabItem { Label("Single", systemImage: "calendar") }
+            .tabItem { Label("Detail", systemImage: "rectangle.stack") }
 
             NavigationStack {
                 BoardsView()
             }
             .tabItem { Label("Boards", systemImage: "square.grid.2x2") }
+
+            NavigationStack {
+                SingleHeatmapView()
+            }
+            .tabItem { Label("Single", systemImage: "calendar") }
         }
+    }
+}
+
+// MARK: - Detail card demo (one big card per board)
+
+/// One large card per board, mirroring the Boards-tab grid one-to-one
+/// so users can see the same set of habits in two visual styles. Each
+/// card uses the board's own theme (background + palette) but renders
+/// at a much larger cell size with weekday labels — the wide-detail
+/// counterpart to the compact `HabitCard` in the Boards tab.
+struct DetailCardView: View {
+    @State private var boards = Board.samples()
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                ForEach(boards) { board in
+                    BigBoardCard(board: board)
+                }
+            }
+            .padding(16)
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("Detail")
+    }
+}
+
+struct BigBoardCard: View {
+    let board: Board
+
+    /// 16 weeks — matches the reference screenshot window
+    /// (approximately 110 days).
+    private static let dayCount = 16 * 7
+
+    private var dateRange: ClosedRange<Date> {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let start = cal.date(byAdding: .day, value: -(Self.dayCount - 1), to: today)!
+        return start...today
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            // Header
+            HStack(spacing: 6) {
+                Text(board.emoji).font(.title3)
+                Text(board.title)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 0)
+            }
+
+            // Heatmap with weekday labels on the left. fitToWidth lets
+            // each cell grow to fill the card width on iPad / wide
+            // screens and shrink (down to 8pt) on a phone-narrow card.
+            CalendarHeatmap(
+                contributions: board.data,
+                dateRange: dateRange
+            )
+            .cellSize(20)
+            .cellSpacing(4)
+            .scrollEnabled(false)
+            .levels(board.palette)
+            .showWeekdayLabels(true)
+            .showMonthLabels(false)
+            .todayHighlightColor(nil)
+            .fitToWidth(minCellSize: 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(20)
+        .background(board.cardBackground, in: RoundedRectangle(cornerRadius: 28))
+        .foregroundStyle(board.foreground)
     }
 }
 
@@ -284,13 +362,15 @@ struct Board: Identifiable {
         ]
     }
 
-    /// 49 days (7 weeks) ending today, each cell active with the given probability,
-    /// values 1...4 to map across the four non-empty intensity levels.
+    /// 16 weeks (112 days) ending today, each cell active with the given
+    /// probability, values 1...4 to map across the four non-empty intensity
+    /// levels. Range is wide enough to cover both the small `HabitCard`
+    /// (last 49 days) and the wide `BigBoardCard` (full 112 days).
     private static func randomData(activeProbability p: Double) -> [Date: Double] {
         var d: [Date: Double] = [:]
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        for offset in 0...48 {
+        for offset in 0...111 {
             guard let date = cal.date(byAdding: .day, value: -offset, to: today) else { continue }
             if Double.random(in: 0..<1) < p {
                 d[date] = Double(Int.random(in: 1...4))
