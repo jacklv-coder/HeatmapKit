@@ -164,9 +164,9 @@ Three-stage behavior driven by container width:
 |-------|-----------|---------|
 | Wide (≥ ~900pt for a 53-week year) | 14pt (capped) | No — full year visible |
 | Mid (~500–900pt) | Adaptive between 10 and 14pt | No — full year visible |
-| Narrow (< ~500pt, typical iPhone) | 10pt (floor) | Yes — scroll older history |
+| Narrow (< ~500pt, typical iPhone) | Sized so N whole weeks exactly fill the container (cell ≥ `minCellSize`) | Yes — scroll older history |
 
-The scroll fallback engages automatically whenever even `minCellSize` doesn't fit, regardless of `.scrollEnabled(_:)`.
+In the narrow case the trailing-anchored initial render shows N whole columns with no partial cell at the leading edge; subsequent scroll positions snap to week boundaries via `.scrollTargetBehavior(.viewAligned)`. The scroll fallback engages automatically whenever even `minCellSize` doesn't fit all weeks, regardless of `.scrollEnabled(_:)`.
 
 ### Bring your own palette
 

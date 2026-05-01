@@ -125,11 +125,14 @@ public extension CalendarHeatmap {
     /// - **Wide** (≥ ~900pt, e.g. iPad / Mac window): cells at 14pt, no
     ///   scroll, full year visible
     /// - **Mid** (~500–900pt): cells shrink between 10 and 14pt, no scroll
-    /// - **Narrow** (< ~500pt, e.g. iPhone): cells stay at 10pt, horizontal
-    ///   scroll for older history
+    /// - **Narrow** (< ~500pt, e.g. iPhone): cells sized so N whole weeks
+    ///   exactly fill the container at the trailing anchor — no partial
+    ///   cell at the leading edge — with horizontal scroll for older
+    ///   history. Subsequent scroll positions snap to week boundaries.
     ///
     /// When this modifier is set, the scroll fallback always activates if
-    /// `minCellSize` doesn't fit, regardless of `.scrollEnabled(_:)`.
+    /// even `minCellSize` doesn't fit all weeks, regardless of
+    /// `.scrollEnabled(_:)`.
     func fitToWidth(minCellSize: CGFloat = 10) -> CalendarHeatmap {
         var copy = self
         copy.fitToWidthEnabled = true

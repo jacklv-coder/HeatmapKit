@@ -205,26 +205,39 @@ public struct CalendarHeatmap<Item>: View {
         guard weeks > 0 else { return (cellSize, false) }
 
         let labelsWidth: CGFloat = showWeekdayLabels ? cellSize + cellSpacing : 0
-        let spacingTotal = CGFloat(max(weeks - 1, 0)) * cellSpacing
-        let availableForCells = containerWidth - labelsWidth - spacingTotal
+        let availableWidth = containerWidth - labelsWidth
 
-        guard availableForCells > 0 else {
+        guard availableWidth > 0 else {
             return (minCellSize, true)
         }
 
-        let fitSize = availableForCells / CGFloat(weeks)
+        // Cell size needed to fit ALL `weeks` columns in the available width.
+        let allFitSize = (availableWidth - CGFloat(max(weeks - 1, 0)) * cellSpacing) / CGFloat(weeks)
         // The effective cap is the larger of `cellSize` and `minCellSize` so
         // an over-spec'd `minCellSize > cellSize` doesn't silently violate
         // the floor (e.g. fitToWidth(minCellSize: 20) with default cellSize
         // 14 should produce 20pt cells, not 14).
         let cap = max(cellSize, minCellSize)
 
-        if fitSize >= cap {
+        if allFitSize >= cap {
             return (cap, false)                 // wide: cap at preferred (or floor if floor > preferred)
-        } else if fitSize >= minCellSize {
-            return (fitSize, false)             // mid: shrink to fit, no scroll
+        } else if allFitSize >= minCellSize {
+            return (allFitSize, false)          // mid: shrink to fit all weeks, no scroll
         } else {
-            return (minCellSize, true)          // narrow: floor + scroll
+            // Narrow: not all weeks fit even at minCellSize. Pick the largest
+            // whole-week count that fits at minCellSize, then derive the exact
+            // cellSize so those N weeks fill the container at the trailing
+            // anchor — the initial render shows N whole columns, no partial
+            // cell at the leading edge. Older weeks scroll into view (and the
+            // scrollTargetBehavior snaps subsequent stops to week boundaries).
+            let perCell = minCellSize + cellSpacing
+            let visibleN = max(1, Int(floor((availableWidth + cellSpacing) / perCell)))
+            let exactCellSize = (availableWidth - CGFloat(visibleN - 1) * cellSpacing) / CGFloat(visibleN)
+            // Clamp into [minCellSize, cap]. The lower clamp matters only in
+            // the degenerate case where availableWidth < a single minCellSize
+            // cell (we'd rather overflow + scroll than render a sub-min cell).
+            let final = min(cap, max(minCellSize, exactCellSize))
+            return (final, true)
         }
     }
 

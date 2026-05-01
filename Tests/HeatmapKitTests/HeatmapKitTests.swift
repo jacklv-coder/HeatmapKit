@@ -210,16 +210,27 @@ func adaptiveLayoutHonorsMinEvenWhenAboveCellSize() {
 
 @Test
 @MainActor
-func adaptiveLayoutFloorsAndScrollsWhenNarrow() {
-    // 365 days squeezed into 100pt: even minCellSize doesn't fit, so
-    // the layout should pin to minCellSize and engage the scroll
-    // fallback.
+func adaptiveLayoutNarrowFillsContainerWithWholeWeeks() {
+    // 365 days squeezed into 100pt: even minCellSize won't fit all
+    // weeks, so the narrow branch picks the largest whole-week count
+    // that fits at minCellSize and sizes cells exactly to fill the
+    // container — initial render shows N whole columns with no
+    // partial cell at the leading edge.
+    //
+    // 100pt container, no labels, spacing 3, minCellSize 10:
+    //   visibleN = floor((100 + 3) / (10 + 3)) = 7
+    //   cellSize = (100 - 6*3) / 7 = 82/7 ≈ 11.71
     let heatmap = CalendarHeatmap(contributions: [:])
         .fitToWidth(minCellSize: 10)
 
     let layout = heatmap.computeAdaptiveLayout(containerWidth: 100)
-    #expect(layout.cellSize == 10)
-    #expect(layout.scroll == true)
+    #expect(layout.cellSize >= 10)              // floor honored
+    #expect(layout.scroll == true)              // scroll engaged for older history
+    // 7 weeks at the computed cellSize + 6 spacings should equal the
+    // container width (within float epsilon), proving no partial cell.
+    let n = 7
+    let total = CGFloat(n) * layout.cellSize + CGFloat(n - 1) * 3
+    #expect(abs(total - 100) < 0.001)
 }
 
 // MARK: - Color palette
