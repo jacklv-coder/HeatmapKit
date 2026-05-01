@@ -56,8 +56,8 @@ struct DetailCardView: View {
 struct BigBoardCard: View {
     let board: Board
 
-    /// 16 weeks. Matches the reference screenshot's `Sep 29 – Jan 16`
-    /// window (approximately 110 days).
+    /// 16 weeks — matches the reference screenshot window
+    /// (approximately 110 days).
     private static let dayCount = 16 * 7
 
     private var dateRange: ClosedRange<Date> {
@@ -65,12 +65,6 @@ struct BigBoardCard: View {
         let today = cal.startOfDay(for: Date())
         let start = cal.date(byAdding: .day, value: -(Self.dayCount - 1), to: today)!
         return start...today
-    }
-
-    private var formattedRange: String {
-        let f = DateFormatter()
-        f.dateFormat = "MMM d, yyyy"
-        return "\(f.string(from: dateRange.lowerBound)) – \(f.string(from: dateRange.upperBound))"
     }
 
     var body: some View {
@@ -101,13 +95,6 @@ struct BigBoardCard: View {
             .todayHighlightColor(nil)
             .fitToWidth(minCellSize: 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            // Date range under the grid (matches the reference card —
-            // minus the prev/next pagination, which the user explicitly
-            // didn't want in this variant).
-            Text(formattedRange)
-                .font(.callout)
-                .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding(20)
         .background(board.cardBackground, in: RoundedRectangle(cornerRadius: 28))
