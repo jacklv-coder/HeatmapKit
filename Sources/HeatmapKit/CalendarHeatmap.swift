@@ -179,22 +179,30 @@ public struct CalendarHeatmap<Item>: View {
         }
     }
 
-    /// Two-pass adaptive layout: render the patched copy at its **natural**
-    /// height (so the parent reserves exactly the right vertical space), and
-    /// concurrently measure the container width via a transparent
-    /// `GeometryReader` background. The `@State` width re-fires `body` once
-    /// SwiftUI knows the actual width, which then feeds the correct cellSize
-    /// to `derived(for:)`.
+    /// Two-pass adaptive layout: render the patched copy stretched to the
+    /// container width (so the background `GeometryReader` measures the
+    /// *container*, not the heatmap's natural size), then push that width
+    /// back into `@State` via a `PreferenceKey`. SwiftUI re-renders with the
+    /// real measured width, which feeds the correct `cellSize` to
+    /// `derived(for:)`. Height stays at the heatmap's natural height
+    /// because `.frame(maxWidth: .infinity)` only stretches horizontally —
+    /// no vertical dead space.
     ///
-    /// Width default is `cellSize × 53 + cellSpacing × 52` — wide enough that
-    /// the very first frame returns the cap-cellSize layout (no scroll). On
-    /// real layout the measured width re-renders into the right shape; the
-    /// brief flash is preferable to the pre-fix bug where `.frame(height:
-    /// estimatedHeight)` baked in the *maximum* possible height and left
-    /// dead space at the bottom whenever cells shrank to fit.
+    /// The `.frame(maxWidth: .infinity, alignment: .leading)` is critical:
+    /// without it the heatmap would render at its own natural width, and
+    /// the background would measure that natural width (not the container
+    /// width), forming a self-reference loop where `measuredWidth`
+    /// converges to the heatmap's own width and never reflects how much
+    /// space the parent actually offered.
+    ///
+    /// Width default is `cellSize × 53 + cellSpacing × 52` — wide enough
+    /// that the very first frame picks the cap-cellSize layout (no
+    /// scroll). On real layout the measured width re-renders into the
+    /// right shape.
     private var adaptiveBody: some View {
         let width = measuredWidth ?? defaultAdaptiveWidth
         return derived(for: width)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 GeometryReader { proxy in
                     Color.clear.preference(
