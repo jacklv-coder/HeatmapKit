@@ -2,6 +2,7 @@
 
 > A modern SwiftUI calendar heatmap and contribution graph component — visualize time-series data the way GitHub shows your contributions.
 
+[![CI](https://github.com/jacklv-coder/HeatmapKit/actions/workflows/swift.yml/badge.svg)](https://github.com/jacklv-coder/HeatmapKit/actions/workflows/swift.yml)
 [![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
 [![Platforms](https://img.shields.io/badge/Platforms-iOS%2017%20%7C%20macOS%2014%20%7C%20watchOS%2010%20%7C%20tvOS%2017%20%7C%20visionOS%201-blue.svg)](https://github.com/jacklv-coder/HeatmapKit)
 [![SwiftPM](https://img.shields.io/badge/SwiftPM-Compatible-brightgreen.svg)](https://swift.org/package-manager)
@@ -15,8 +16,7 @@ Most existing heatmap libraries for Apple platforms target UIKit and have not be
 
 - 🍎 **Pure SwiftUI** — declarative API, no UIKit bridging
 - 📅 **Calendar heatmap** — GitHub-style 7×N grid, perfect for contributions / habits / activity
-- ↔️ **Horizontal scrolling** — long ranges scroll naturally; default-anchors to the most recent week
-- 📐 **Fit-to-width layout** — opt-in `.fitToWidth(minCellSize:)` adapts cell size to the container, only scrolling when even the floor doesn't fit
+- 📐 **Adaptive layout** — opt-in `.fitToWidth(minCellSize:)` sizes cells to the container; falls back to horizontal scrolling (anchored to the most recent week) when even the floor doesn't fit
 - 🎨 **6 built-in palettes** with auto light / dark variants (green mirrors github.com), plus full custom-color support
 - ⚖️ **Auto or custom thresholds** — let HeatmapKit bucket values from `data.max()`, or supply your own cutoffs
 - 🌍 **Localized labels** — month/weekday labels follow `Calendar.current.locale`
@@ -45,7 +45,7 @@ Add the dependency in `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/jacklv-coder/HeatmapKit", from: "0.1.0")
+    .package(url: "https://github.com/jacklv-coder/HeatmapKit", from: "0.5.0")
 ]
 ```
 
@@ -228,6 +228,16 @@ struct ShareableHeatmap: View {
 ## Contributing
 
 Issues and pull requests are welcome. The project is in its early days, so feedback on API shape is especially valuable.
+
+## Acknowledgements
+
+- The visual language — 7-row grid, light/dark palette, today outline behavior — is patterned on [GitHub's contribution graph](https://github.blog/2013-01-07-introducing-contributions/).
+- The Boards tab in the demo app is inspired by the habit-tracking UI of [Streaks](https://streaksapp.com).
+- Thanks to everyone filing issues and feedback during the 0.x series.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## License
 
