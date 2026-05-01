@@ -12,15 +12,142 @@ struct ContentView: View {
     var body: some View {
         TabView {
             NavigationStack {
-                SingleHeatmapView()
+                DetailCardView()
             }
-            .tabItem { Label("Single", systemImage: "calendar") }
+            .tabItem { Label("Detail", systemImage: "rectangle.stack") }
 
             NavigationStack {
                 BoardsView()
             }
             .tabItem { Label("Boards", systemImage: "square.grid.2x2") }
+
+            NavigationStack {
+                SingleHeatmapView()
+            }
+            .tabItem { Label("Single", systemImage: "calendar") }
         }
+    }
+}
+
+// MARK: - Detail card demo (paginated wide card)
+
+struct DetailCardView: View {
+    @State private var pageOffset: Int = 0
+    @State private var data: [Date: Double] = SampleData.generate()
+
+    private static let weeksPerPage = 16
+
+    private var dateRange: ClosedRange<Date> {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let endOffset = 7 * Self.weeksPerPage * pageOffset
+        let startOffset = endOffset + 7 * Self.weeksPerPage - 1
+        let end = cal.date(byAdding: .day, value: -endOffset, to: today)!
+        let start = cal.date(byAdding: .day, value: -startOffset, to: today)!
+        return start...end
+    }
+
+    private var formattedRange: String {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d, yyyy"
+        return "\(f.string(from: dateRange.lowerBound)) – \(f.string(from: dateRange.upperBound))"
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                Text("Detail card with weekday labels and `< >` pagination. Each page = 16 weeks; scroll within is disabled because the page already fills the card.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                DetailHeatmapCard(
+                    data: data,
+                    dateRange: dateRange,
+                    formattedRange: formattedRange,
+                    canGoNewer: pageOffset > 0,
+                    onOlder: { pageOffset += 1 },
+                    onNewer: { pageOffset = max(0, pageOffset - 1) }
+                )
+
+                HStack {
+                    Button("Regenerate") {
+                        data = SampleData.generate()
+                        pageOffset = 0
+                    }
+                    .buttonStyle(.bordered)
+
+                    Spacer()
+                }
+            }
+            .padding(20)
+        }
+        .navigationTitle("Detail")
+    }
+}
+
+struct DetailHeatmapCard: View {
+    let data: [Date: Double]
+    let dateRange: ClosedRange<Date>
+    let formattedRange: String
+    let canGoNewer: Bool
+    let onOlder: () -> Void
+    let onNewer: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            // The heatmap. Weekday labels on, month labels off (the date
+            // range below the card already conveys the time window). The
+            // built-in `.purple` palette adapts to colorScheme; forcing
+            // `.colorScheme = .dark` on the card makes it pick the dark
+            // variant regardless of the surrounding app appearance, so the
+            // pinks pop on the deep purple background.
+            CalendarHeatmap(
+                contributions: data,
+                dateRange: dateRange
+            )
+            .cellSize(20)
+            .cellSpacing(4)
+            .scrollEnabled(false)
+            .levels(.purple)
+            .showWeekdayLabels(true)
+            .showMonthLabels(false)
+            .todayHighlightColor(nil)
+            .fitToWidth(minCellSize: 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 12) {
+                pageButton(systemName: "chevron.left", action: onOlder, enabled: true)
+
+                Spacer()
+
+                Text(formattedRange)
+                    .font(.callout)
+
+                Spacer()
+
+                pageButton(systemName: "chevron.right", action: onNewer, enabled: canGoNewer)
+            }
+        }
+        .padding(20)
+        .background(
+            Color(red: 0.20, green: 0.07, blue: 0.16),
+            in: RoundedRectangle(cornerRadius: 28)
+        )
+        .foregroundStyle(.white)
+        .environment(\.colorScheme, .dark)
+    }
+
+    private func pageButton(systemName: String, action: @escaping () -> Void, enabled: Bool) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.black)
+                .frame(width: 36, height: 36)
+                .background(Color.white.opacity(0.85), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.4)
     }
 }
 
