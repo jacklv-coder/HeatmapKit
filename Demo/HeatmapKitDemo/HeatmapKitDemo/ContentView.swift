@@ -29,22 +29,42 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Detail card demo (paginated wide card)
+// MARK: - Detail card demo (one big card per board)
 
+/// One large card per board, mirroring the Boards-tab grid one-to-one
+/// so users can see the same set of habits in two visual styles. Each
+/// card uses the board's own theme (background + palette) but renders
+/// at a much larger cell size with weekday labels — the wide-detail
+/// counterpart to the compact `HabitCard` in the Boards tab.
 struct DetailCardView: View {
-    @State private var pageOffset: Int = 0
-    @State private var data: [Date: Double] = SampleData.generate()
+    @State private var boards = Board.samples()
 
-    private static let weeksPerPage = 16
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                ForEach(boards) { board in
+                    BigBoardCard(board: board)
+                }
+            }
+            .padding(16)
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("Detail")
+    }
+}
+
+struct BigBoardCard: View {
+    let board: Board
+
+    /// 16 weeks. Matches the reference screenshot's `Sep 29 – Jan 16`
+    /// window (approximately 110 days).
+    private static let dayCount = 16 * 7
 
     private var dateRange: ClosedRange<Date> {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        let endOffset = 7 * Self.weeksPerPage * pageOffset
-        let startOffset = endOffset + 7 * Self.weeksPerPage - 1
-        let end = cal.date(byAdding: .day, value: -endOffset, to: today)!
-        let start = cal.date(byAdding: .day, value: -startOffset, to: today)!
-        return start...end
+        let start = cal.date(byAdding: .day, value: -(Self.dayCount - 1), to: today)!
+        return start...today
     }
 
     private var formattedRange: String {
@@ -54,100 +74,44 @@ struct DetailCardView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                Text("Detail card with weekday labels and `< >` pagination. Each page = 16 weeks; scroll within is disabled because the page already fills the card.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                DetailHeatmapCard(
-                    data: data,
-                    dateRange: dateRange,
-                    formattedRange: formattedRange,
-                    canGoNewer: pageOffset > 0,
-                    onOlder: { pageOffset += 1 },
-                    onNewer: { pageOffset = max(0, pageOffset - 1) }
-                )
-
-                HStack {
-                    Button("Regenerate") {
-                        data = SampleData.generate()
-                        pageOffset = 0
-                    }
-                    .buttonStyle(.bordered)
-
-                    Spacer()
-                }
+        VStack(alignment: .leading, spacing: 18) {
+            // Header
+            HStack(spacing: 6) {
+                Text(board.emoji).font(.title3)
+                Text(board.title)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 0)
             }
-            .padding(20)
-        }
-        .navigationTitle("Detail")
-    }
-}
 
-struct DetailHeatmapCard: View {
-    let data: [Date: Double]
-    let dateRange: ClosedRange<Date>
-    let formattedRange: String
-    let canGoNewer: Bool
-    let onOlder: () -> Void
-    let onNewer: () -> Void
-
-    var body: some View {
-        VStack(spacing: 20) {
-            // The heatmap. Weekday labels on, month labels off (the date
-            // range below the card already conveys the time window). The
-            // built-in `.purple` palette adapts to colorScheme; forcing
-            // `.colorScheme = .dark` on the card makes it pick the dark
-            // variant regardless of the surrounding app appearance, so the
-            // pinks pop on the deep purple background.
+            // Heatmap with weekday labels on the left. fitToWidth lets
+            // each cell grow to fill the card width on iPad / wide
+            // screens and shrink (down to 8pt) on a phone-narrow card.
             CalendarHeatmap(
-                contributions: data,
+                contributions: board.data,
                 dateRange: dateRange
             )
             .cellSize(20)
             .cellSpacing(4)
             .scrollEnabled(false)
-            .levels(.purple)
+            .levels(board.palette)
             .showWeekdayLabels(true)
             .showMonthLabels(false)
             .todayHighlightColor(nil)
             .fitToWidth(minCellSize: 8)
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(spacing: 12) {
-                pageButton(systemName: "chevron.left", action: onOlder, enabled: true)
-
-                Spacer()
-
-                Text(formattedRange)
-                    .font(.callout)
-
-                Spacer()
-
-                pageButton(systemName: "chevron.right", action: onNewer, enabled: canGoNewer)
-            }
+            // Date range under the grid (matches the reference card —
+            // minus the prev/next pagination, which the user explicitly
+            // didn't want in this variant).
+            Text(formattedRange)
+                .font(.callout)
+                .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding(20)
-        .background(
-            Color(red: 0.20, green: 0.07, blue: 0.16),
-            in: RoundedRectangle(cornerRadius: 28)
-        )
-        .foregroundStyle(.white)
-        .environment(\.colorScheme, .dark)
-    }
-
-    private func pageButton(systemName: String, action: @escaping () -> Void, enabled: Bool) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(.black)
-                .frame(width: 36, height: 36)
-                .background(Color.white.opacity(0.85), in: Circle())
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-        .opacity(enabled ? 1 : 0.4)
+        .background(board.cardBackground, in: RoundedRectangle(cornerRadius: 28))
+        .foregroundStyle(board.foreground)
     }
 }
 
@@ -411,13 +375,15 @@ struct Board: Identifiable {
         ]
     }
 
-    /// 49 days (7 weeks) ending today, each cell active with the given probability,
-    /// values 1...4 to map across the four non-empty intensity levels.
+    /// 16 weeks (112 days) ending today, each cell active with the given
+    /// probability, values 1...4 to map across the four non-empty intensity
+    /// levels. Range is wide enough to cover both the small `HabitCard`
+    /// (last 49 days) and the wide `BigBoardCard` (full 112 days).
     private static func randomData(activeProbability p: Double) -> [Date: Double] {
         var d: [Date: Double] = [:]
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        for offset in 0...48 {
+        for offset in 0...111 {
             guard let date = cal.date(byAdding: .day, value: -offset, to: today) else { continue }
             if Double.random(in: 0..<1) < p {
                 d[date] = Double(Int.random(in: 1...4))
