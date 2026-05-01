@@ -188,32 +188,58 @@ func adaptiveLayoutCapsAtPreferredWhenWide() {
 @MainActor
 func adaptiveLayoutHonorsMinEvenWhenAboveCellSize() {
     // When `minCellSize > cellSize`, the floor wins as the effective cap —
-    // cells must still be at least `minCellSize`. A too-wide container
-    // resolves to the larger of the two; a too-narrow container floors at
-    // `minCellSize` and lets the heatmap overflow (the new Layout-based
-    // adaptive body intentionally drops the old exact-fill + scroll
-    // fallback in favor of single-pass Layout-protocol sizing).
+    // cells must still be at least `minCellSize`. A wide container caps
+    // at `max(preferred, min)` with all weeks visible. A narrow
+    // container computes a cellSize that makes the **visible-week
+    // window** fill the viewport exactly; older weeks are still
+    // rendered but reachable only by horizontal scrolling.
     let heatmap = CalendarHeatmap(contributions: [:])
         .cellSize(14)
         .fitToWidth(minCellSize: 20)
 
-    // Generously wide: cap at max(14, 20) = 20.
-    #expect(heatmap.adaptiveCellSize(forContainerWidth: 3000) == 20)
+    // Generously wide: cap at max(14, 20) = 20, all 53 weeks fit.
+    let wide = heatmap.adaptiveLayout(forContainerWidth: 3000)
+    #expect(wide.cellSize == 20)
+    #expect(wide.visibleWeekCount == 53)
 
-    // Narrow: floor at 20 (no scroll, content overflows the proposal —
-    // caller's responsibility to wrap or to not enable .fitToWidth here).
-    #expect(heatmap.adaptiveCellSize(forContainerWidth: 100) == 20)
+    // Narrow: 53 × 20 + 52 × 3 = 1216 > 100, so the visible window
+    // shrinks. Max N at min=20 + 3pt spacing: floor((100 + 3) / 23) = 4.
+    // Exact-fit cellSize for those 4 visible cells = (100 − 3 × 3) / 4
+    // = 22.75. The other 49 weeks scroll in via the adaptive body's
+    // horizontal `ScrollView`.
+    let narrow = heatmap.adaptiveLayout(forContainerWidth: 100)
+    #expect(narrow.cellSize == 22.75)
+    #expect(narrow.visibleWeekCount == 4)
 }
 
 @Test
 @MainActor
-func adaptiveLayoutFloorsAtMinWhenNarrow() {
+func adaptiveLayoutShrinksVisibleWindowWhenNarrow() {
     // 365 days at preferredCellSize 14 needs ~900pt; squeezed into 100pt
-    // even minCellSize=10 can't fit, so cells floor at minCellSize.
+    // even minCellSize=10 can't fit, so the visible-week window shrinks
+    // and cellSize is bumped up to fill the viewport exactly. The full
+    // history is still rendered — the adaptive body wraps content in a
+    // horizontal ScrollView, and trailing-anchored scroll lands on a
+    // clean week boundary because cellSize was chosen to make the
+    // overflow an exact multiple of `cellSize + cellSpacing`.
     let heatmap = CalendarHeatmap(contributions: [:])
         .fitToWidth(minCellSize: 10)
 
-    #expect(heatmap.adaptiveCellSize(forContainerWidth: 100) == 10)
+    // Max N at min=10 + 3pt spacing: floor((100 + 3) / 13) = 7.
+    // Exact-fit cellSize = (100 − 6 × 3) / 7 = 82/7 ≈ 11.714.
+    let layout = heatmap.adaptiveLayout(forContainerWidth: 100)
+    #expect(layout.visibleWeekCount == 7)
+    #expect(abs(layout.cellSize - 82.0 / 7.0) < 0.001)
+    #expect(layout.cellSize >= 10) // never below min
+
+    // The trailing-anchor snap math: total content overflows the
+    // viewport by `(totalWeekCount - visibleWeekCount) * (cellSize +
+    // spacing)`, which must be an integer multiple of the cell-step so
+    // the leftmost visible column lines up cleanly.
+    let step = layout.cellSize + 3
+    let overflow = (53 - layout.visibleWeekCount) * Int(round(step * 1000))
+    let stepScaled = Int(round(step * 1000))
+    #expect(overflow.isMultiple(of: stepScaled))
 }
 
 @Test

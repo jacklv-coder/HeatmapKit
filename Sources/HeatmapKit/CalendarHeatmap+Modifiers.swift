@@ -117,22 +117,31 @@ public extension CalendarHeatmap {
 
     /// Adapt cell size to the container width: cells grow up to the value
     /// passed via `.cellSize(_:)` (the upper bound), shrink down to
-    /// `minCellSize` (the lower bound), and only fall back to a horizontal
-    /// scroll when even `minCellSize` doesn't fit.
+    /// `minCellSize` (the lower bound), and **scroll horizontally**
+    /// when even `minCellSize` doesn't fit the full range.
     ///
     /// Effect at common widths (with `.cellSize(14)`, default spacing 3,
     /// 53-week range, `minCellSize: 10`):
-    /// - **Wide** (≥ ~900pt, e.g. iPad / Mac window): cells at 14pt, no
-    ///   scroll, full year visible
-    /// - **Mid** (~500–900pt): cells shrink between 10 and 14pt, no scroll
-    /// - **Narrow** (< ~500pt, e.g. iPhone): cells sized so N whole weeks
-    ///   exactly fill the container at the trailing anchor — no partial
-    ///   cell at the leading edge — with horizontal scroll for older
-    ///   history. Subsequent scroll positions snap to week boundaries.
+    /// - **Wide** (≥ ~900pt, e.g. iPad / Mac window): cells at 14pt, full
+    ///   year visible.
+    /// - **Mid** (~700–900pt): cells shrink between 10 and 14pt, all 53
+    ///   weeks fill the container exactly.
+    /// - **Narrow** (< ~700pt, e.g. iPhone): cellSize is sized so a
+    ///   whole-week window fills the viewport exactly at `cellSize ≥
+    ///   min`; the rest of the history is reachable by horizontal
+    ///   scrolling. The trailing scroll anchor snaps to a week boundary
+    ///   so the leftmost visible column never gets clipped (because
+    ///   overflow `= (totalWeeks − visibleWeeks) × (cellSize + spacing)`
+    ///   is an exact multiple of the cell-step).
     ///
-    /// When this modifier is set, the scroll fallback always activates if
-    /// even `minCellSize` doesn't fit all weeks, regardless of
-    /// `.scrollEnabled(_:)`.
+    /// The visible-week count when scrolling is
+    /// `N = floor((W − labelColumn + spacing) / (min + spacing))`,
+    /// and `cellSize = (W − labelColumn − (N−1)·spacing) / N`.
+    ///
+    /// `.scrollEnabled(_:)` has no effect when this modifier is set —
+    /// the adaptive body always wraps content in a horizontal
+    /// `ScrollView`, but it's a no-op in the wide/mid cases where
+    /// content fits.
     func fitToWidth(minCellSize: CGFloat = 10) -> CalendarHeatmap {
         var copy = self
         copy.fitToWidthEnabled = true

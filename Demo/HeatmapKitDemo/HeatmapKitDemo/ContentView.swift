@@ -291,14 +291,17 @@ struct SingleHeatmapView: View {
     // MARK: - Heatmap
 
     private func makeHeatmap() -> CalendarHeatmap<HeatmapDay> {
-        // Single tab intentionally uses the default scroll-wrapped path
-        // (no .fitToWidth) so a 53-week year stays scrollable on phones.
-        // The new Layout-protocol .fitToWidth(...) doesn't engage a scroll
-        // fallback when content overflows — see BigBoardCard in Detail tab
-        // for the .fitToWidth use case (a known-narrow week range).
+        // `.fitToWidth(...)` so cells fill the card exactly: wide
+        // containers cap at preferred (14pt), mid containers shrink
+        // proportionally to fit all 53 weeks, narrow containers size
+        // cells so a whole-week window fills the viewport at `min` and
+        // scroll the rest of the history into view — no left-edge
+        // clipping (the trailing-anchor snap math is wired into the
+        // cellSize choice). See `.fitToWidth(_:)` doc.
         CalendarHeatmap(contributions: data)
             .levels(palette)
             .showWeekdayLabels(weekdayLabels)
+            .fitToWidth(minCellSize: 14)
             .tooltipOnTap { date, value in
                 let day = date.formatted(date: .abbreviated, time: .omitted)
                 return value == 0 ? "\(day)\nno activity"
