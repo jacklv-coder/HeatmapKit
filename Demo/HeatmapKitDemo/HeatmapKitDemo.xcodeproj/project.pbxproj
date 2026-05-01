@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A920832F2FA363BB0018FA13 /* HeatmapKit in Frameworks */ = {isa = PBXBuildFile; productRef = A920832E2FA363BB0018FA13 /* HeatmapKit */; };
 		A920834A2FA496160018FA13 /* HeatmapKit in Frameworks */ = {isa = PBXBuildFile; productRef = A92083492FA496160018FA13 /* HeatmapKit */; };
 /* End PBXBuildFile section */
 
@@ -58,7 +57,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				A920834A2FA496160018FA13 /* HeatmapKit in Frameworks */,
-				A920832F2FA363BB0018FA13 /* HeatmapKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -119,7 +117,6 @@
 			);
 			name = HeatmapKitDemo;
 			packageProductDependencies = (
-				A920832E2FA363BB0018FA13 /* HeatmapKit */,
 				A92083492FA496160018FA13 /* HeatmapKit */,
 			);
 			productName = HeatmapKitDemo;
@@ -626,10 +623,6 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A920832E2FA363BB0018FA13 /* HeatmapKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = HeatmapKit;
-		};
 		A92083492FA496160018FA13 /* HeatmapKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = HeatmapKit;
