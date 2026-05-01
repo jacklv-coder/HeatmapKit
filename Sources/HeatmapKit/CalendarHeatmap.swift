@@ -66,6 +66,9 @@ public struct CalendarHeatmap<Item>: View {
     var scrollEnabled: Bool = true
     var defaultScrollEdge: HorizontalEdge = .trailing
 
+    var fitToWidthEnabled: Bool = false
+    var minCellSize: CGFloat = 10
+
     var onCellTap: ((Date, Double) -> Void)? = nil
 
     var customAccessibilityLabel: ((Date, Double) -> String)? = nil
@@ -134,7 +137,17 @@ public struct CalendarHeatmap<Item>: View {
 
     // MARK: - Body
 
+    @ViewBuilder
     public var body: some View {
+        if fitToWidthEnabled {
+            adaptiveBody
+        } else {
+            staticBody
+        }
+    }
+
+    @ViewBuilder
+    private var staticBody: some View {
         let range = effectiveDateRange
         let values = aggregatedValues
         let thresholds = computedThresholds()
@@ -156,9 +169,88 @@ public struct CalendarHeatmap<Item>: View {
                 content
             }
             .defaultScrollAnchor(scrollAnchor)
+            .scrollTargetBehavior(.viewAligned)
         } else {
             content
         }
+    }
+
+    private var adaptiveBody: some View {
+        GeometryReader { proxy in
+            derived(for: proxy.size.width)
+        }
+        .frame(height: estimatedHeight)
+    }
+
+    /// Returns a copy of `self` with `cellSize` and `scrollEnabled`
+    /// resolved against the given container width. The copy disables
+    /// `fitToWidthEnabled` so its body renders the static path.
+    private func derived(for width: CGFloat) -> CalendarHeatmap<Item> {
+        let layout = computeAdaptiveLayout(containerWidth: width)
+        var copy = self
+        copy.fitToWidthEnabled = false
+        copy.cellSize = layout.cellSize
+        copy.scrollEnabled = layout.scroll
+        return copy
+    }
+
+    /// Maps a container width to a target `cellSize` and whether to
+    /// wrap the grid in a `ScrollView`. See `.fitToWidth(minCellSize:)`.
+    func computeAdaptiveLayout(containerWidth: CGFloat) -> (cellSize: CGFloat, scroll: Bool) {
+        let weeks = HeatmapGrid.build(
+            range: effectiveDateRange,
+            firstWeekday: firstWeekday
+        ).count
+
+        guard weeks > 0 else { return (cellSize, false) }
+
+        let labelsWidth: CGFloat = showWeekdayLabels ? cellSize + cellSpacing : 0
+        let availableWidth = containerWidth - labelsWidth
+
+        guard availableWidth > 0 else {
+            return (minCellSize, true)
+        }
+
+        // Cell size needed to fit ALL `weeks` columns in the available width.
+        let allFitSize = (availableWidth - CGFloat(max(weeks - 1, 0)) * cellSpacing) / CGFloat(weeks)
+        // The effective cap is the larger of `cellSize` and `minCellSize` so
+        // an over-spec'd `minCellSize > cellSize` doesn't silently violate
+        // the floor (e.g. fitToWidth(minCellSize: 20) with default cellSize
+        // 14 should produce 20pt cells, not 14).
+        let cap = max(cellSize, minCellSize)
+
+        if allFitSize >= cap {
+            return (cap, false)                 // wide: cap at preferred (or floor if floor > preferred)
+        } else if allFitSize >= minCellSize {
+            return (allFitSize, false)          // mid: shrink to fit all weeks, no scroll
+        } else {
+            // Narrow: not all weeks fit even at minCellSize. Pick the largest
+            // whole-week count that fits at minCellSize, then derive the exact
+            // cellSize so those N weeks fill the container at the trailing
+            // anchor — the initial render shows N whole columns, no partial
+            // cell at the leading edge. Older weeks scroll into view (and the
+            // scrollTargetBehavior snaps subsequent stops to week boundaries).
+            let perCell = minCellSize + cellSpacing
+            let visibleN = max(1, Int(floor((availableWidth + cellSpacing) / perCell)))
+            let exactCellSize = (availableWidth - CGFloat(visibleN - 1) * cellSpacing) / CGFloat(visibleN)
+            // Floor at minCellSize for the degenerate "container narrower than
+            // a single min cell" case. We deliberately do NOT clamp at `cap`
+            // — once we're in scroll mode, exact-fill (no leading partial)
+            // takes priority over the preferred cellSize ceiling. Allowing
+            // cells slightly larger than `cap` is the only way to consume the
+            // sub-cell remainder of `availableWidth` without leaving empty
+            // space at the leading edge.
+            let final = max(minCellSize, exactCellSize)
+            return (final, true)
+        }
+    }
+
+    /// Reserves enough vertical space for the grid in adaptive mode so
+    /// the surrounding `GeometryReader` doesn't expand greedily.
+    private var estimatedHeight: CGFloat {
+        let gridHeight = 7 * cellSize + 6 * cellSpacing
+        let monthRow: CGFloat = showMonthLabels ? 18 : 0  // 12pt label + 6pt VStack gap
+        return gridHeight + monthRow
     }
 
     private var scrollAnchor: UnitPoint {
@@ -181,20 +273,26 @@ public struct CalendarHeatmap<Item>: View {
             if showWeekdayLabels {
                 weekdayLabelColumn
             }
-            ForEach(weeks) { week in
-                VStack(spacing: cellSpacing) {
-                    ForEach(week.days, id: \.self) { date in
-                        cell(
-                            date: date,
-                            values: values,
-                            thresholds: thresholds,
-                            levels: levels,
-                            today: today,
-                            range: range
-                        )
+            // Inner HStack so `.scrollTargetLayout()` only marks week
+            // columns as snap targets — keeping the weekday-label column
+            // (when shown) outside the scroll-snap math.
+            HStack(alignment: .top, spacing: cellSpacing) {
+                ForEach(weeks) { week in
+                    VStack(spacing: cellSpacing) {
+                        ForEach(week.days, id: \.self) { date in
+                            cell(
+                                date: date,
+                                values: values,
+                                thresholds: thresholds,
+                                levels: levels,
+                                today: today,
+                                range: range
+                            )
+                        }
                     }
                 }
             }
+            .scrollTargetLayout()
         }
     }
 

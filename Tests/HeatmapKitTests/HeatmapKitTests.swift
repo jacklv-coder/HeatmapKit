@@ -159,6 +159,87 @@ func tooltipOnTapEnablesTooltipFlag() {
     #expect(withTooltip.tooltipFormatter == nil)
 }
 
+// MARK: - Fit to width
+
+@Test
+@MainActor
+func fitToWidthEnablesFlag() {
+    let plain = CalendarHeatmap(contributions: [:])
+    #expect(plain.fitToWidthEnabled == false)
+
+    let withFit = plain.fitToWidth(minCellSize: 8)
+    #expect(withFit.fitToWidthEnabled == true)
+    #expect(withFit.minCellSize == 8)
+}
+
+@Test
+@MainActor
+func adaptiveLayoutCapsAtPreferredWhenWide() {
+    // Default range is the last 365 days. At 2000pt the container is
+    // far wider than the natural grid, so cells should cap at the
+    // preferred cellSize (14) and no scroll wrap should engage.
+    let heatmap = CalendarHeatmap(contributions: [:])
+        .fitToWidth(minCellSize: 10)
+
+    let layout = heatmap.computeAdaptiveLayout(containerWidth: 2000)
+    #expect(layout.cellSize == 14)
+    #expect(layout.scroll == false)
+}
+
+@Test
+@MainActor
+func adaptiveLayoutHonorsMinEvenWhenAboveCellSize() {
+    // When `minCellSize > cellSize`, the floor wins as the effective cap —
+    // cells must still be at least `minCellSize`. Previously a too-wide
+    // container would silently clamp to `cellSize` (14) and violate the
+    // floor; now the cap clamps to max(cellSize, minCellSize).
+    let heatmap = CalendarHeatmap(contributions: [:])
+        .cellSize(14)
+        .fitToWidth(minCellSize: 20)
+
+    // Generously wide: cap at max(14, 20) = 20, no scroll.
+    let wide = heatmap.computeAdaptiveLayout(containerWidth: 3000)
+    #expect(wide.cellSize == 20)
+    #expect(wide.scroll == false)
+
+    // Narrow: scroll engages and cellSize is sized to fill the container
+    // exactly with whole weeks. cellSize must be ≥ minCellSize but is
+    // *not* clamped at `cap` — the narrow branch prioritizes exact fill
+    // over the preferred-size ceiling so there's no partial cell at the
+    // leading edge. (W=100, perCell=23 → visibleN=4, cell=91/4=22.75)
+    let narrow = heatmap.computeAdaptiveLayout(containerWidth: 100)
+    #expect(narrow.cellSize >= 20)
+    #expect(narrow.scroll == true)
+    let n = 4
+    let total = CGFloat(n) * narrow.cellSize + CGFloat(n - 1) * 3
+    #expect(abs(total - 100) < 0.001)
+}
+
+@Test
+@MainActor
+func adaptiveLayoutNarrowFillsContainerWithWholeWeeks() {
+    // 365 days squeezed into 100pt: even minCellSize won't fit all
+    // weeks, so the narrow branch picks the largest whole-week count
+    // that fits at minCellSize and sizes cells exactly to fill the
+    // container — initial render shows N whole columns with no
+    // partial cell at the leading edge.
+    //
+    // 100pt container, no labels, spacing 3, minCellSize 10:
+    //   visibleN = floor((100 + 3) / (10 + 3)) = 7
+    //   cellSize = (100 - 6*3) / 7 = 82/7 ≈ 11.71
+    let heatmap = CalendarHeatmap(contributions: [:])
+        .fitToWidth(minCellSize: 10)
+
+    let layout = heatmap.computeAdaptiveLayout(containerWidth: 100)
+    #expect(layout.cellSize >= 10)              // floor honored
+    #expect(layout.scroll == true)              // scroll engaged for older history
+    // 7 weeks at the computed cellSize + 6 spacings should equal the
+    // container width (within float epsilon), proving no partial cell.
+    let n = 7
+    let total = CGFloat(n) * layout.cellSize + CGFloat(n - 1) * 3
+    #expect(abs(total - 100) < 0.001)
+}
+
 // MARK: - Color palette
 
 @Test
