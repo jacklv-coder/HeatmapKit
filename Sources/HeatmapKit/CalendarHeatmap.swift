@@ -179,43 +179,43 @@ public struct CalendarHeatmap<Item>: View {
         }
     }
 
-    /// Two-pass adaptive layout: render the patched copy stretched to the
-    /// container width (so the background `GeometryReader` measures the
-    /// *container*, not the heatmap's natural size), then push that width
-    /// back into `@State` via a `PreferenceKey`. SwiftUI re-renders with the
-    /// real measured width, which feeds the correct `cellSize` to
-    /// `derived(for:)`. Height stays at the heatmap's natural height
-    /// because `.frame(maxWidth: .infinity)` only stretches horizontally —
-    /// no vertical dead space.
+    /// Two-pass adaptive layout: stretch the row to container width with
+    /// a trailing `Spacer`, push the width back into `@State` via
+    /// `onGeometryChange`, and use the measured width to feed the correct
+    /// `cellSize` to `derived(for:)`. The `Spacer` is critical — it forces
+    /// the row to consume the parent's full proposed width even when the
+    /// heatmap's natural width is smaller, which makes:
     ///
-    /// The `.frame(maxWidth: .infinity, alignment: .leading)` is critical:
-    /// without it the heatmap would render at its own natural width, and
-    /// the background would measure that natural width (not the container
-    /// width), forming a self-reference loop where `measuredWidth`
-    /// converges to the heatmap's own width and never reflects how much
-    /// space the parent actually offered.
+    /// 1. `onGeometryChange` measure the **container** width (not the
+    ///    heatmap's own natural width — that would be a self-reference
+    ///    loop where `measuredWidth` converges to the heatmap's own size
+    ///    and never reflects how much space the parent actually offered).
     ///
-    /// Width default is `cellSize × 53 + cellSpacing × 52` — wide enough
-    /// that the very first frame picks the cap-cellSize layout (no
-    /// scroll). On real layout the measured width re-renders into the
-    /// right shape.
+    /// 2. The heatmap sit at the leading edge of the container instead
+    ///    of being centered or auto-aligned by SwiftUI's overflow rules
+    ///    when the natural size doesn't match the proposal.
+    ///
+    /// Height stays at the heatmap's natural height because the row's
+    /// height is dictated by the heatmap (the `Spacer` has no intrinsic
+    /// height). No vertical dead space.
+    ///
+    /// First render uses `defaultAdaptiveWidth` (a generously wide
+    /// fallback) so the very first frame picks the cap-cellSize layout
+    /// without scroll; the geometry callback then fires with the real
+    /// container width and the view re-renders into its final shape.
     private var adaptiveBody: some View {
         let width = measuredWidth ?? defaultAdaptiveWidth
-        return derived(for: width)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: AdaptiveWidthKey.self,
-                        value: proxy.size.width
-                    )
-                }
-            )
-            .onPreferenceChange(AdaptiveWidthKey.self) { newWidth in
-                if measuredWidth != newWidth {
-                    measuredWidth = newWidth
-                }
+        return HStack(spacing: 0) {
+            derived(for: width)
+            Spacer(minLength: 0)
+        }
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { newWidth in
+            if measuredWidth != newWidth {
+                measuredWidth = newWidth
             }
+        }
     }
 
     private var defaultAdaptiveWidth: CGFloat {
@@ -494,18 +494,6 @@ public struct CalendarHeatmap<Item>: View {
             }
         }
         return thresholds
-    }
-}
-
-// MARK: - Adaptive layout plumbing
-
-/// File-private preference key — must live outside the generic
-/// `CalendarHeatmap<Item>` because nested generics can't carry the
-/// static `defaultValue` storage required by `PreferenceKey`.
-private struct AdaptiveWidthKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
 
