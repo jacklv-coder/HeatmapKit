@@ -79,6 +79,7 @@ public struct CalendarHeatmap<Item>: View {
     // MARK: - Local view state
 
     @State private var activeTooltipDate: Date? = nil
+    @State private var _adaptiveHeight: CGFloat = 0
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -212,6 +213,7 @@ public struct CalendarHeatmap<Item>: View {
 
         return GeometryReader { proxy in
             let resolvedCellSize = adaptiveCellSize(forContainerWidth: proxy.size.width)
+            let exactHeight = exactGridHeight(cellSize: resolvedCellSize)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -229,8 +231,19 @@ public struct CalendarHeatmap<Item>: View {
             }
             .defaultScrollAnchor(scrollAnchor)
             .scrollTargetBehavior(.viewAligned)
+            .preference(key: _HeatmapHeightKey.self, value: exactHeight)
         }
-        .frame(height: adaptiveBodyHeight())
+        .onPreferenceChange(_HeatmapHeightKey.self) { h in
+            if h > 0 { _adaptiveHeight = h }
+        }
+        .frame(height: _adaptiveHeight > 0 ? _adaptiveHeight : adaptiveBodyHeight())
+    }
+
+    /// Exact rendered height for a given resolved cell size.
+    private func exactGridHeight(cellSize: CGFloat) -> CGFloat {
+        let gridHeight = 7 * cellSize + 6 * cellSpacing
+        let labelsHeight: CGFloat = showMonthLabels ? 12 + 6 : 0
+        return gridHeight + labelsHeight
     }
 
     /// Upper bound on the heatmap's natural height — used to constrain
@@ -529,6 +542,15 @@ public struct CalendarHeatmap<Item>: View {
             }
         }
         return thresholds
+    }
+}
+
+// MARK: - Adaptive height preference
+
+private struct _HeatmapHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
